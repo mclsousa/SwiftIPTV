@@ -70,19 +70,35 @@ jobs:
           New-Item -ItemType Directory -Force -Path "third_party/mpv" | Out-Null
           7z x -y "-othird_party/mpv/raw" "mpv-dev.7z" | Out-Null
 
-          $def = Get-ChildItem -Path "third_party/mpv/raw" -Recurse -Filter *.def | Select-Object -First 1
-          $dll = Get-ChildItem -Path "third_party/mpv/raw" -Recurse -Filter libmpv-2.dll | Select-Object -First 1
-          if (-not $def) { throw "Arquivo .def da mpv nao encontrado no pacote." }
-          if (-not $dll) { throw "libmpv-2.dll nao encontrada no pacote." }
+          # A DLL da libmpv (pode vir como libmpv-2.dll)
+          $dll = Get-ChildItem -Path "third_party/mpv/raw" -Recurse -Filter "libmpv*.dll" | Select-Object -First 1
+          if (-not $dll) { throw "DLL da libmpv nao encontrada no pacote." }
+          New-Item -ItemType Directory -Force -Path "third_party/mpv/lib" | Out-Null
+          Copy-Item -Force $dll.FullName "third_party/mpv/libmpv-2.dll"
 
+          # Headers
           Copy-Item -Recurse -Force "third_party/mpv/raw/include" "third_party/mpv/include"
           if (-not (Test-Path "third_party/mpv/include/mpv/client.h")) { throw "Headers da mpv ausentes." }
 
-          New-Item -ItemType Directory -Force -Path "third_party/mpv/lib" | Out-Null
-          lib /def:"$($def.FullName)" /name:libmpv-2.dll /out:"third_party/mpv/lib/mpv.lib" /machine:x64
-          if (-not (Test-Path "third_party/mpv/lib/mpv.lib")) { throw "Falha ao gerar mpv.lib." }
+          # Import lib do MSVC: usa o .def do pacote OU gera um a partir da DLL (dumpbin)
+          $def = Get-ChildItem -Path "third_party/mpv/raw" -Recurse -Filter *.def | Select-Object -First 1
+          if ($def) {
+            $defPath = $def.FullName
+          } else {
+            Write-Host "Pacote sem .def; gerando a partir da DLL via dumpbin..."
+            $exports = & dumpbin /exports "third_party/mpv/libmpv-2.dll"
+            $names = $exports | ForEach-Object {
+              if ($_ -match '^\s+\d+\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+(\S+)') { $matches[1] }
+            } | Where-Object { $_ } | Sort-Object -Unique
+            if (-not $names -or $names.Count -eq 0) { throw "Nao consegui extrair os exports da DLL." }
+            $defPath = "third_party/mpv/libmpv-2.def"
+            "EXPORTS" | Out-File -FilePath $defPath -Encoding ascii
+            $names | Out-File -FilePath $defPath -Append -Encoding ascii
+            Write-Host "Gerados $($names.Count) simbolos no .def"
+          }
 
-          Copy-Item -Force "$($dll.FullName)" "third_party/mpv/libmpv-2.dll"
+          lib /def:"$defPath" /name:libmpv-2.dll /out:"third_party/mpv/lib/mpv.lib" /machine:x64
+          if (-not (Test-Path "third_party/mpv/lib/mpv.lib")) { throw "Falha ao gerar mpv.lib." }
 
           $root = (Resolve-Path "third_party/mpv").Path
           "MPV_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
