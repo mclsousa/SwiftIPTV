@@ -15,7 +15,7 @@ endif()
 # ----------------------------------------------------------------------------
 # Qt 6
 # ----------------------------------------------------------------------------
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Qml Quick Network PrintSupport Widgets)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui OpenGL Qml Quick Network PrintSupport Widgets)
 qt_standard_project_setup(REQUIRES 6.5)
 
 # ----------------------------------------------------------------------------
@@ -103,7 +103,7 @@ target_include_directories(SwiftIPTV PRIVATE
 )
 
 target_link_libraries(SwiftIPTV PRIVATE
-    Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Network Qt6::PrintSupport Qt6::Widgets
+    Qt6::Core Qt6::Gui Qt6::OpenGL Qt6::Qml Qt6::Quick Qt6::Network Qt6::PrintSupport Qt6::Widgets
     ${MPV_LIBRARY}
 )
 

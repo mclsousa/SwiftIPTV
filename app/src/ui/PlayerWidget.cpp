@@ -1,7 +1,7 @@
 #include "ui/PlayerWidget.h"
 
 #include <QtGui/QOpenGLContext>
-#include <QtGui/QOpenGLFramebufferObject>
+#include <QOpenGLFramebufferObject>   // Qt6: módulo QtOpenGL (não QtGui)
 #include <QtQuick/QQuickWindow>
 #include <QtQuick/QQuickOpenGLUtils>
 #include <QMetaObject>
