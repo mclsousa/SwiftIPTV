@@ -1,0 +1,13 @@
+#EXTM3U
+# Lista de teste do SwiftIPTV — 3 streams HLS publicos para validar o player.
+# Use com run_smoke_test.bat (define SWIFTIPTV_LOCAL_M3U e abre o app).
+# Se um stream estiver fora do ar, troque a URL — o objetivo e so testar a reproducao.
+
+#EXTINF:-1 tvg-id="test.mux" tvg-name="Mux Test (BBB)" tvg-logo="https://mux.com/favicon.ico" group-title="Testes",Mux Test - Big Buck Bunny
+https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
+
+#EXTINF:-1 tvg-id="test.apple" tvg-name="Apple BipBop" tvg-logo="https://www.apple.com/favicon.ico" group-title="Testes",Apple BipBop (fMP4)
+https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8
+
+#EXTINF:-1 tvg-id="test.akamai" tvg-name="Akamai Live Test" tvg-logo="https://www.akamai.com/favicon.ico" group-title="Testes",Akamai Live Test
+https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8

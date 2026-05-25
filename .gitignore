@@ -1,0 +1,54 @@
+# =====================================================================
+#  SwiftIPTV - .gitignore (raiz do repositorio)
+#  Mantem no Git apenas o codigo-fonte; ignora tudo que e gerado/baixado.
+# =====================================================================
+
+# ---- Saida de build do app C++/Qt ----
+app/build/
+build/
+
+# ---- Qt instalado localmente (aqtinstall) e dependencias baixadas ----
+app/Qt/
+app/third_party/
+Qt/
+third_party/
+
+# ---- Instalador e artefatos gerados ----
+SwiftIPTV-Setup.exe
+release_notes.md
+mpv-dev.7z
+
+# ---- Artefatos de compilacao (MSVC / CMake) ----
+*.exe
+*.dll
+*.lib
+*.a
+*.obj
+*.o
+*.pdb
+*.ilk
+*.exp
+*.idb
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+*.7z
+*.zip
+
+# ---- Arquivos de IDE / usuario ----
+*.user
+*.user.*
+*.vcxproj.user
+CMakeSettings.json
+.vs/
+.vscode/
+.idea/
+
+# ---- Logs e temporarios ----
+*.log
+*.tmp
+
+# ---- Sistema operacional ----
+Thumbs.db
+Desktop.ini
+.DS_Store

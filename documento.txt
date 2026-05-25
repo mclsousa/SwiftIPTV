@@ -1,0 +1,293 @@
+netsh interface ip set dns name="{adapter}" static {dns_primario}
+netsh interface ip add dns name="{adapter}" {dns_secundario} index=2
+O app deve solicitar elevação de privilégios (UAC) se necessário.
+Detectar todos os adaptadores ativos com `netsh interface show interface`.
+Salvar o DNS anterior para oferecer restauração ao sair.
+
+---
+
+### TELA 3 — PLAYER PRINCIPAL
+
+Layout de duas colunas:
+- Esquerda (300px): lista de canais com scroll virtual
+- Direita: player em tela cheia com overlay
+
+Funcionalidades:
+- Busca incremental de canais (filtra enquanto digita)
+- Grupos/categorias colapsáveis
+- Logos dos canais em cache local (lazy loading)
+- Tela cheia com F11 ou duplo clique
+- Overlay com nome do canal e programa atual (fade em 3s)
+- EPG (guia de programação) com barra de progresso
+- Atalhos: setas para navegar, Enter para selecionar, ESC voltar
+- Favoritos com persistência
+- Histórico dos últimos 50 canais
+
+---
+
+### ARQUITETURA DE THREADS (CRÍTICO)
+Thread 1 → UI exclusiva (zero bloqueio)
+Thread 2 → Network (recepção UDP/TCP/HLS)
+Thread 3 → Demuxer (separa áudio/vídeo do TS)
+Thread 4 → Decoder (repasse para D3D11VA/DXVA2)
+Thread 5 → EPG loader (background)
+Thread 6 → Channel prefetch (pré-bufferiza próximo canal)
+
+### Troca de Canal Ultra-Rápida
+1. Flush IMEDIATO e agressivo do buffer atual
+2. Matar conexão anterior sem esperar fechar
+3. Thread network inicia nova conexão em paralelo
+4. Descartar pacotes TS corrompidos imediatamente
+5. Timeout máximo de 800ms para I-frame
+Meta: <300ms UDP, <1.5s HLS
+
+### Parser M3U
+- Carregamento completo em RAM na inicialização
+- Indexação std::unordered_map (busca O(1))
+- Suporte a listas com 50.000 canais sem degradação
+- Parser assíncrono (não bloqueia UI)
+- Cache em disco com invalidação MD5
+
+---
+
+### TELA 4 — DIAGNÓSTICO DE REDE (aba dentro do app)
+
+Implementar diagnóstico completo baseado no código de referência abaixo.
+Deve rodar dentro do app usando Qt WebEngine ou implementação nativa C++.
+
+**Funcionalidades obrigatórias (baseadas no código de referência):**
+
+1. **Health Score** — círculo com nota geral da conexão (OK/WARN/BAD) calculado a partir de latência + velocidade + perda de pacotes
+
+2. **Cards de informação em tempo real:**
+   - IPv4 e IPv6 (via api.ipify.org)
+   - Geolocalização: cidade, região, país, ISP, ASN (via ipwho.is com fallback ipapi.co)
+   - Tipo de rede: Wi-Fi, Ethernet, Móvel
+   - Latência: ping para Google, Cloudflare e GitHub (4 amostras, descarta warmup, mostra mínimo e média)
+   - Velocidade de download (via speed.cloudflare.com/__down?bytes=5000000 — calcular Mbps reais)
+   - Estimativa de perda de pacotes (12 pings paralelos, conta falhas)
+
+3. **Teste de DNS A vs B (comparação lado a lado):**
+   - Presets: Cloudflare (DoH: cloudflare-dns.com), Google (dns.google), AdGuard, Quad9, NextDNS
+   - Mede latência de resolução DNS via DoH (DNS over HTTPS)
+   - Botão "Trocar A ↔ B"
+   - Mostra: tempo de resposta, IPs resolvidos, status (OK/WARN/BAD)
+   - **PLUS vs código original:** testar também os DNS do servidor IPTV (carregados da API de login)
+
+4. **Detecção de VPN/Proxy:**
+   - Checar org/ISP contra lista de provedores de datacenter e VPNs conhecidas
+   - Checar mismatch entre timezone do sistema e timezone do IP
+   - Score de confiança em %
+
+5. **Teste de acesso ao servidor IPTV:**
+   - Testar conectividade HTTP com cada DNS do servidor retornado no login
+   - Medir latência de cada servidor
+   - Indicar qual servidor está mais rápido
+   - **Este teste não existe no código original — é exclusivo do SwiftIPTV**
+
+6. **Relatório detalhado** em formato texto (igual ao código original) com opção de copiar
+
+7. **Histórico** dos últimos 10 diagnósticos com timestamp, IP, cidade, ISP, latência e velocidade
+
+**Código de referência para o diagnóstico** (adaptar para C++/Qt ou Qt WebEngine):
+- pingImg via carregamento de favicon (usar QNetworkAccessManager no C++)
+- fetchTimeout com Promise.race adaptado para QTimer + QNetworkReply
+- Todas as funções: detectarIPs(), medirLatencia(), estimarPerda(), medirVelocidade(), geolocalizar(), inferirVPN(), testarDNS()
+- Implementar em C++ nativo usando QNetworkAccessManager com as mesmas URLs e lógicas do JS original
+
+---
+
+### Configurações Persistentes
+Arquivo: `%APPDATA%\SwiftIPTV\config.ini`
+- Token de sessão (login persistente)
+- DNS do PC atual (para restaurar ao sair)
+- Último canal assistido
+- Volume e preferências de áudio
+- Tamanho e posição da janela
+- Preferência de DNS escolhida
+
+---
+
+## PRODUTO 2 — PAINEL WEB PHP (para o operador)
+
+### Stack
+- PHP 8.2+
+- MySQL 8 ou MariaDB
+- HTML5 + CSS3 moderno (Tailwind CSS via CDN)
+- JavaScript vanilla (sem frameworks pesados)
+- Design: dark mode, moderno, limpo
+
+### Funcionalidades do Painel
+
+#### 1. Autenticação do Operador
+- Login seguro com sessão PHP
+- Senha com hash bcrypt
+
+#### 2. Gerenciamento de DNS do Servidor
+Esta é a função central. O operador gerencia quais DNS/servidores IPTV estarão disponíveis para os clientes.
+
+Tabela `server_dns`:
+```sql
+id, nome, url, ativo, prioridade, criado_em, atualizado_em
+```
+Exemplos de registros:
+- Nome: "Servidor Principal", URL: "http://superiptv.com"
+- Nome: "Servidor Backup", URL: "http://melhoriptv.com"
+- Nome: "Servidor CDN", URL: "http://fastiptv.net"
+
+Interface:
+- Tabela com todos os DNS cadastrados
+- Botão "Adicionar DNS" (modal com campos: nome, URL, ativo, prioridade)
+- Editar / Ativar / Desativar / Deletar cada registro
+- Ordenar por prioridade (drag-and-drop ou campo numérico)
+- Indicador de status: testar se a URL está respondendo (ping HTTP em tempo real via AJAX)
+
+Quando o app do cliente faz login, a API retorna os DNS ativos ordenados por prioridade. O operador pode a qualquer momento:
+- Adicionar novo servidor (clientes recebem na próxima autenticação)
+- Desativar servidor com problema (clientes param de receber esse DNS)
+- Reordenar prioridade (clientes sempre tentam o primeiro primeiro)
+
+#### 3. Autenticação de Clientes (integração com painel IPTV existente)
+
+O operador tem seu próprio painel onde cria as listas IPTV.
+O SwiftIPTV precisa validar login + senha consultando esse painel.
+
+Implementar dois modos configuráveis via `config.php`:
+
+**Modo A — Xtream Codes API** (se o painel for Xtream Codes compatível):
+GET http://seupainel.com/player_api.php?username={u}&password={p}&action=get_live_categories
+Se retornar JSON válido com `user_info.auth == 1` → usuário válido.
+
+**Modo B — Tabela local** (usuários cadastrados manualmente no painel SwiftIPTV):
+Tabela `clientes`:
+```sql
+id, username, password_hash, ativo, expira_em, criado_em, ultimo_acesso
+```
+Interface para cadastrar, editar, ativar/desativar, definir data de expiração.
+
+Configurar qual modo usar em `config.php`:
+```php
+define('AUTH_MODE', 'xtream'); // ou 'local'
+define('XTREAM_URL', 'http://seupainel.com');
+```
+
+#### 4. API Endpoint (usado pelo app)
+
+Arquivo: `api/auth.php`
+
+Recebe POST JSON: `{ "username": "x", "password": "y" }`
+
+Lógica:
+1. Valida usuário conforme AUTH_MODE
+2. Busca DNS ativos ordenados por prioridade
+3. Retorna:
+```json
+{
+  "ok": true,
+  "token": "hash_unico",
+  "server_dns": ["http://servidor1.com", "http://servidor2.com"],
+  "username_iptv": "nomedocliente",
+  "password_iptv": "senhadocliente",
+  "expires_at": "2025-12-31"
+}
+```
+4. Em caso de erro:
+```json
+{ "ok": false, "message": "Usuário ou senha incorretos" }
+```
+5. Registrar cada acesso em tabela `logs_acesso`: ip, user_agent, username, resultado, timestamp
+
+#### 5. Dashboard
+- Total de clientes ativos
+- Acessos hoje / última semana (gráfico de barras simples)
+- DNS cadastrados (quantos ativos/inativos)
+- Últimos 10 acessos (tabela: usuário, IP, data, resultado)
+
+#### 6. Logs de Acesso
+- Tabela completa com filtro por usuário, data, resultado
+- Exportar CSV
+
+---
+
+## ESTRUTURA DE ARQUIVOS
+
+### App C++
+SwiftIPTV/
+├── CMakeLists.txt
+├── src/
+│   ├── main.cpp
+│   ├── core/
+│   │   ├── AuthManager.h/.cpp        (login, token, DNS do servidor)
+│   │   ├── ChannelManager.h/.cpp     (lista, hash map, cache)
+│   │   ├── StreamPlayer.h/.cpp       (wrapper libMPV, troca rápida)
+│   │   ├── M3UParser.h/.cpp          (parser otimizado)
+│   │   ├── NetworkThread.h/.cpp      (recepção de pacotes)
+│   │   ├── EPGManager.h/.cpp
+│   │   ├── DnsChanger.h/.cpp         (netsh, UAC, detectar adaptadores)
+│   │   ├── DiagnosticEngine.h/.cpp   (todos os testes de rede)
+│   │   └── PrefetchEngine.h/.cpp
+│   └── ui/
+│       ├── LoginWindow.h/.cpp
+│       ├── DnsSetupWindow.h/.cpp
+│       ├── MainWindow.h/.cpp
+│       ├── ChannelList.h/.cpp
+│       ├── PlayerWidget.h/.cpp
+│       └── DiagnosticPanel.h/.cpp
+├── qml/
+│   ├── LoginScreen.qml
+│   ├── DnsSetup.qml
+│   ├── MainPlayer.qml
+│   └── DiagnosticView.qml
+└── resources/
+
+### Painel PHP
+painel/
+├── config.php                  (configurações globais)
+├── index.php                   (dashboard)
+├── login.php
+├── logout.php
+├── dns/
+│   ├── index.php               (lista DNS)
+│   ├── add.php
+│   ├── edit.php
+│   └── ping_test.php           (AJAX: testa se URL responde)
+├── clientes/
+│   ├── index.php
+│   ├── add.php
+│   └── edit.php
+├── logs/
+│   └── index.php
+├── api/
+│   └── auth.php                (endpoint usado pelo app)
+├── includes/
+│   ├── db.php                  (PDO connection)
+│   ├── auth.php                (sessão do operador)
+│   └── functions.php
+├── assets/
+│   └── style.css
+└── install/
+└── schema.sql              (CREATE TABLE completo)
+
+---
+
+## PERFORMANCE TARGETS (não negociáveis)
+- Inicialização do app: < 2 segundos
+- Troca de canal UDP: < 300ms
+- Troca de canal HLS: < 1.5s
+- Carregamento lista 10k canais: < 500ms
+- CPU em reprodução normal: < 5% (hardware decode)
+- RAM com 10k canais: < 200MB
+
+---
+
+## ENTREGÁVEIS ESPERADOS
+1. Todos os arquivos .h/.cpp do app completos e funcionais
+2. CMakeLists.txt completo com flags /O2 /arch:AVX2
+3. Todos os arquivos PHP do painel completos
+4. schema.sql com todas as tabelas e dados iniciais
+5. config.php com todas as constantes documentadas
+6. README.md com instruções de compilação do app e deploy do painel
+
+**Prioridade absoluta: VELOCIDADE no app. Em qualquer decisão de design, escolha sempre a opção mais rápida. Este app compete diretamente com o ProgDVB.**
+
+Comece pelo núcleo: AuthManager + DnsChanger + LoginWindow funcionais, depois M3UParser + StreamPlayer + MainWindow, depois DiagnosticEngine, e por último o painel PHP completo.

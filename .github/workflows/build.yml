@@ -1,0 +1,227 @@
+name: Build SwiftIPTV (Windows)
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]      # tag v1.0, v1.1, v2.0 ... dispara build + release
+  pull_request:
+  workflow_dispatch:    # permite rodar manualmente pela aba Actions
+
+permissions:
+  contents: write       # write: criar a GitHub Release (e ler releases públicas da libmpv)
+
+jobs:
+  build:
+    runs-on: windows-2022   # VS 2022 + NSIS já vêm na imagem
+
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: app   # o projeto C++ vive em app/
+
+    env:
+      QT_VERSION: "6.5.3"
+      QT_ARCH: "win64_msvc2019_64"
+
+    steps:
+      # -------------------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------------------------
+      # Qt 6.5.3 via aqtinstall (a action usa aqtinstall por baixo)
+      # qtdeclarative (QtQuick/Controls/Layouts) e PrintSupport já vêm no kit base.
+      # -------------------------------------------------------------------
+      - name: Instalar Qt ${{ env.QT_VERSION }}
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: ${{ env.QT_ARCH }}
+          cache: true
+
+      # -------------------------------------------------------------------
+      # Ambiente MSVC (necessário para o lib.exe gerar a import lib da mpv)
+      # -------------------------------------------------------------------
+      - name: Configurar MSVC (x64)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      # -------------------------------------------------------------------
+      # libMPV dev MAIS RECENTE: pega o asset mpv-dev-x86_64-*.7z da última
+      # release de zhongfly/mpv-winbuild, extrai e gera mpv.lib a partir do .def.
+      # -------------------------------------------------------------------
+      - name: Baixar libMPV dev (latest) e gerar import lib
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $headers = @{ "Authorization" = "Bearer $env:GH_TOKEN"; "User-Agent" = "swiftiptv-ci" }
+          $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/zhongfly/mpv-winbuild/releases/latest" -Headers $headers
+          $asset = $rel.assets |
+                   Where-Object { $_.name -match '^mpv-dev-x86_64-\d' -and $_.name -notmatch 'v3' } |
+                   Select-Object -First 1
+          if (-not $asset) { throw "Asset mpv-dev-x86_64-*.7z nao encontrado na release mais recente." }
+          Write-Host "libMPV dev:" $asset.name
+
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "mpv-dev.7z" -Headers $headers
+          New-Item -ItemType Directory -Force -Path "third_party/mpv" | Out-Null
+          7z x -y "-othird_party/mpv/raw" "mpv-dev.7z" | Out-Null
+
+          $def = Get-ChildItem -Path "third_party/mpv/raw" -Recurse -Filter *.def | Select-Object -First 1
+          $dll = Get-ChildItem -Path "third_party/mpv/raw" -Recurse -Filter libmpv-2.dll | Select-Object -First 1
+          if (-not $def) { throw "Arquivo .def da mpv nao encontrado no pacote." }
+          if (-not $dll) { throw "libmpv-2.dll nao encontrada no pacote." }
+
+          Copy-Item -Recurse -Force "third_party/mpv/raw/include" "third_party/mpv/include"
+          if (-not (Test-Path "third_party/mpv/include/mpv/client.h")) { throw "Headers da mpv ausentes." }
+
+          New-Item -ItemType Directory -Force -Path "third_party/mpv/lib" | Out-Null
+          lib /def:"$($def.FullName)" /name:libmpv-2.dll /out:"third_party/mpv/lib/mpv.lib" /machine:x64
+          if (-not (Test-Path "third_party/mpv/lib/mpv.lib")) { throw "Falha ao gerar mpv.lib." }
+
+          Copy-Item -Force "$($dll.FullName)" "third_party/mpv/libmpv-2.dll"
+
+          $root = (Resolve-Path "third_party/mpv").Path
+          "MPV_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "MPV_ROOT=$root"
+
+      # -------------------------------------------------------------------
+      # Configurar + compilar (Release). --verbose para erro completo no log.
+      # -------------------------------------------------------------------
+      - name: CMake configure
+        run: |
+          $ErrorActionPreference = "Stop"
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
+                -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" `
+                -DMPV_ROOT="$env:MPV_ROOT"
+          if ($LASTEXITCODE -ne 0) { throw "cmake configure falhou ($LASTEXITCODE)" }
+
+      - name: CMake build (Release)
+        run: |
+          $ErrorActionPreference = "Stop"
+          cmake --build build --config Release --parallel --verbose
+          if ($LASTEXITCODE -ne 0) { throw "compilacao falhou ($LASTEXITCODE)" }
+
+      # -------------------------------------------------------------------
+      # Deploy do Qt + DLLs + smoke_test.m3u
+      # -------------------------------------------------------------------
+      - name: windeployqt + copiar DLLs
+        run: |
+          $ErrorActionPreference = "Stop"
+          $out = "build/Release"
+          if (-not (Test-Path "$out/SwiftIPTV.exe")) { throw "SwiftIPTV.exe nao foi gerado." }
+          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --qmldir qml "$out/SwiftIPTV.exe"
+          if ($LASTEXITCODE -ne 0) { throw "windeployqt falhou ($LASTEXITCODE)" }
+          Copy-Item -Force "$env:MPV_ROOT\libmpv-2.dll" "$out/"
+          Copy-Item -Force "smoke_test.m3u" "$out/"
+          if (-not (Test-Path "$out/libmpv-2.dll")) { throw "libmpv-2.dll nao foi copiada." }
+
+      # -------------------------------------------------------------------
+      # Smoke test (headless, deterministico): parseia smoke_test.m3u
+      # -------------------------------------------------------------------
+      - name: Smoke test (--selftest)
+        run: |
+          $ErrorActionPreference = "Stop"
+          Write-Host "Rodando: SwiftIPTV.exe --selftest smoke_test.m3u"
+          & "build/Release/SwiftIPTV.exe" --selftest "build/Release/smoke_test.m3u"
+          $code = $LASTEXITCODE
+          Write-Host "Exit code: $code"
+          if ($code -ne 0) { throw "Smoke test falhou (codigo $code) - parser/DLLs com problema." }
+
+      # -------------------------------------------------------------------
+      # Lançamento real da GUI (best-effort). Pode falhar em runner sem GPU,
+      # por isso e apenas informativo (continue-on-error).
+      # -------------------------------------------------------------------
+      - name: Smoke test GUI (informativo)
+        continue-on-error: true
+        run: |
+          $env:SWIFTIPTV_LOCAL_M3U = (Resolve-Path "build/Release/smoke_test.m3u").Path
+          $p = Start-Process -FilePath "build/Release/SwiftIPTV.exe" -PassThru
+          Start-Sleep -Seconds 12
+          if ($p.HasExited) {
+            throw "App encerrou cedo (codigo $($p.ExitCode)) - provavel falta de GPU/OpenGL no runner."
+          } else {
+            Stop-Process -Id $p.Id -Force
+            Write-Host "GUI iniciou e rodou 12s sem crash."
+          }
+
+      # -------------------------------------------------------------------
+      # Instalador NSIS (setup.exe) usando o installer.nsi existente
+      # -------------------------------------------------------------------
+      - name: Gerar instalador (NSIS)
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (-not (Get-Command makensis -ErrorAction SilentlyContinue)) { choco install nsis -y }
+          makensis installer.nsi
+          if ($LASTEXITCODE -ne 0) { throw "makensis falhou ($LASTEXITCODE)" }
+          if (-not (Test-Path "SwiftIPTV-Setup.exe")) { throw "SwiftIPTV-Setup.exe nao foi gerado." }
+          Write-Host "Instalador gerado: SwiftIPTV-Setup.exe"
+
+      # -------------------------------------------------------------------
+      # Publicar artifacts
+      # -------------------------------------------------------------------
+      - name: Upload do instalador
+        uses: actions/upload-artifact@v4
+        with:
+          name: SwiftIPTV-Setup
+          path: app/SwiftIPTV-Setup.exe
+          if-no-files-found: error
+
+      - name: Upload da versão portable (deploy)
+        if: always()   # útil para debug mesmo se uma etapa posterior falhar
+        uses: actions/upload-artifact@v4
+        with:
+          name: SwiftIPTV-portable
+          path: app/build/Release/
+          if-no-files-found: warn
+
+      # ===================================================================
+      # RELEASE AUTOMÁTICO — roda somente quando o push é uma tag v*
+      # ===================================================================
+      - name: Extrair notas da versão do CHANGELOG
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: ${{ github.workspace }}   # CHANGELOG.md está na raiz do repo
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tag = "${{ github.ref_name }}"
+          $notes = "release_notes.md"
+          if (-not (Test-Path "CHANGELOG.md")) {
+            "Release $tag do SwiftIPTV." | Out-File -FilePath $notes -Encoding utf8
+          } else {
+            $lines = Get-Content "CHANGELOG.md"
+            # Casa o cabecalho exato "## <tag>" (ex.: "## v1.0 - 2026-05-25")
+            $pattern = '^##\s+' + [regex]::Escape($tag) + '(\s|$)'
+            $body = New-Object System.Collections.Generic.List[string]
+            $inside = $false
+            foreach ($l in $lines) {
+              if ($l -match '^##\s') {
+                if ($inside) { break }                 # próxima versão -> termina
+                if ($l -match $pattern) { $inside = $true; continue }
+              }
+              if ($inside) { $body.Add($l) }
+            }
+            $text = ($body -join "`n").Trim()
+            if ([string]::IsNullOrWhiteSpace($text)) {
+              $text = "Release $tag do SwiftIPTV.`n`nVeja o CHANGELOG.md para detalhes."
+            }
+            $text | Out-File -FilePath $notes -Encoding utf8
+          }
+          Write-Host "----- Notas da release ($tag) -----"
+          Get-Content $notes
+
+      - name: Criar GitHub Release e anexar o instalador
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: SwiftIPTV ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body_path: release_notes.md
+          files: app/SwiftIPTV-Setup.exe
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false
