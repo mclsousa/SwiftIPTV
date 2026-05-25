@@ -142,10 +142,15 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           Write-Host "Rodando: SwiftIPTV.exe --selftest smoke_test.m3u"
-          & "build/Release/SwiftIPTV.exe" --selftest "build/Release/smoke_test.m3u"
-          $code = $LASTEXITCODE
+          # O app e' GUI (subsystem WINDOWS); com '&' o $LASTEXITCODE nao e' confiavel.
+          # Start-Process -Wait espera o processo terminar e devolve o ExitCode certo.
+          $p = Start-Process -FilePath "build/Release/SwiftIPTV.exe" `
+                             -ArgumentList @("--selftest", "build/Release/smoke_test.m3u") `
+                             -Wait -PassThru -NoNewWindow
+          $code = $p.ExitCode
           Write-Host "Exit code: $code"
           if ($code -ne 0) { throw "Smoke test falhou (codigo $code) - parser/DLLs com problema." }
+          Write-Host "Smoke test OK: app iniciou, DLLs resolvidas e parser leu os canais."
 
       # -------------------------------------------------------------------
       # Lançamento real da GUI (best-effort). Pode falhar em runner sem GPU,
