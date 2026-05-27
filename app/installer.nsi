@@ -5,8 +5,8 @@
 ;  Saida:     SwiftIPTV-Setup.exe
 ; ---------------------------------------------------------------------------
 
-!define APPNAME    "SwiftIPTV"
-!define COMPANY    "SwiftIPTV"
+!define APPNAME    "DIGTV+"
+!define COMPANY    "DIGTV+"
 !define VERSION    "1.0.0"
 !define EXENAME    "SwiftIPTV.exe"
 !define SRCDIR     "build\Release"

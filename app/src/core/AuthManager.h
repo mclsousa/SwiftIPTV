@@ -7,7 +7,7 @@
 class QJsonObject;
 
 // Constante atualizada com a URL real do painel em produção.
-#define SWIFTIPTV_API_URL "https://seudominio.com/swiftiptv/api/auth.php"
+#define SWIFTIPTV_API_URL "https://dixg.com.br/painel/api/auth.php"
 
 class AuthManager : public QObject {
     Q_OBJECT

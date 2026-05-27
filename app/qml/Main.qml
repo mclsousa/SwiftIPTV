@@ -12,7 +12,7 @@ ApplicationWindow {
     y: app.winY
     minimumWidth: 960
     minimumHeight: 600
-    title: "SwiftIPTV"
+    title: "DIGTV+"
     color: Theme.bg
 
     onClosing: app.saveWindow(win.x, win.y, win.width, win.height)

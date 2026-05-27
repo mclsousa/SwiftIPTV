@@ -4,9 +4,9 @@ Solução completa de IPTV para operadores: um **painel web** (PHP) para gerenci
 clientes, servidores DNS e logs, e um **app Windows nativo** (C++/Qt/QML + libMPV)
 para os clientes assistirem, com troca de canal ultrarrápida e diagnóstico de rede.
 
-> Substitua `SEU_USUARIO/SEU_REPO` pelos seus dados do GitHub nos links abaixo.
+> Repositório: **github.com/mclsousa/SwiftIPTV**
 
-[![Build](https://github.com/SEU_USUARIO/SEU_REPO/actions/workflows/build.yml/badge.svg)](https://github.com/SEU_USUARIO/SEU_REPO/actions/workflows/build.yml)
+[![Build](https://github.com/mclsousa/SwiftIPTV/actions/workflows/build.yml/badge.svg)](https://github.com/mclsousa/SwiftIPTV/actions/workflows/build.yml)
 
 ---
 
@@ -118,9 +118,9 @@ O build e a publicação são automáticos ao empurrar uma **tag `v*`**.
 
 ### Links fixos de download
 - Última versão (sempre aponta para a mais recente):
-  `https://github.com/SEU_USUARIO/SEU_REPO/releases/latest/download/SwiftIPTV-Setup.exe`
+  `https://github.com/mclsousa/SwiftIPTV/releases/latest/download/SwiftIPTV-Setup.exe`
 - Versão específica:
-  `https://github.com/SEU_USUARIO/SEU_REPO/releases/download/v1.0/SwiftIPTV-Setup.exe`
+  `https://github.com/mclsousa/SwiftIPTV/releases/download/v1.0/SwiftIPTV-Setup.exe`
 
 ---
 
@@ -134,7 +134,7 @@ git init
 git add .
 git commit -m "SwiftIPTV: painel + app + CI"
 git branch -M main
-git remote add origin https://github.com/SEU_USUARIO/SEU_REPO.git
+git remote add origin https://github.com/mclsousa/SwiftIPTV.git
 git push -u origin main
 ```
 

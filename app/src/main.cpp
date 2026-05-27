@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
     QGuiApplication app(argc, argv);
     QGuiApplication::setApplicationName("SwiftIPTV");
     QGuiApplication::setOrganizationName("SwiftIPTV");
-    QGuiApplication::setApplicationDisplayName("SwiftIPTV");
+    QGuiApplication::setApplicationDisplayName("DIGTV+");
 
     Settings::instance(); // garante diretórios em %APPDATA%
 

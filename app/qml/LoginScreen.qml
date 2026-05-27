@@ -29,7 +29,7 @@ Item {
             width: 64; height: 64; radius: 18; color: Theme.brand
             Text { anchors.centerIn: parent; text: "⚡"; font.pixelSize: 30; color: "white" }
         }
-        Text { Layout.alignment: Qt.AlignHCenter; text: "SwiftIPTV"; color: Theme.text; font.pixelSize: 26; font.bold: true }
+        Text { Layout.alignment: Qt.AlignHCenter; text: "DIGTV+"; color: Theme.text; font.pixelSize: 26; font.bold: true }
         Text { Layout.alignment: Qt.AlignHCenter; text: "Entre com sua conta"; color: Theme.subtext; font.pixelSize: 14 }
 
         TextField {

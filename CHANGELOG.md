@@ -9,6 +9,30 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.1 - 2026-05-27
+Primeira versão hospedada em produção (dixg.com.br) e início do rebrand para DIGTV+.
+
+### App Windows — `app/`
+- `SWIFTIPTV_API_URL` agora aponta para `https://dixg.com.br/painel/api/auth.php`
+  (era um placeholder `https://seudominio.com/...` na v1.0, o que provocava
+  "Algoritmo incompatível" na negociação SSL).
+- Rebrand visual parcial: título da janela, tela de login e display name
+  da `QGuiApplication` exibem **DIGTV+**.
+- Instalador NSIS gera atalho/registro com o nome **DIGTV+**
+  (o executável continua `SwiftIPTV.exe` por compatibilidade com o CI).
+
+### Painel — `painel/`
+- Painel publicado em `https://dixg.com.br/painel/` (Hostinger).
+- `APP_NAME` configurado como **DIGTV+ Panel** em produção.
+- Novo arquivo `install/schema_hostinger.sql`: schema sem `CREATE DATABASE/USE`
+  para importação direta via phpMyAdmin em hospedagens compartilhadas
+  (onde o banco é criado pelo painel da hospedagem e o usuário não tem
+  permissão de criar bancos novos).
+
+### Docs
+- README com URLs reais do repositório `mclsousa/SwiftIPTV`
+  (eram placeholders `SEU_USUARIO/SEU_REPO` na v1.0).
+
 ## v1.0 - 2026-05-25
 Primeira versão.
 
