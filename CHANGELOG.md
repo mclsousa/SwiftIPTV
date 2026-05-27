@@ -9,6 +9,43 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.14 - 2026-05-27
+**Refactor da janela filha do vídeo: QWindow → Win32 nativo puro.**
+Resolve 3 bugs num único refactor.
+
+### Diagnóstico (via mpv.log do usuário)
+- **Flash branco DEPOIS do preto inicial**: a classe interna do Qt para
+  `QWindow` tem `hbrBackground = COLOR_WINDOW` (≈ branco). O Windows
+  pinta com esse brush **antes** do `WM_ERASEBKGND` chegar ao
+  `nativeEvent` do `BlackBackedWindow` (v1.12), causando o flash.
+- **Sidebar não volta ao mover mouse após auto-hide**: `QWindow` filho
+  consome `WM_MOUSEMOVE` sem repassar pro QQuickItem pai. O
+  `HoverHandler` da QML nunca dispara quando o mouse está sobre o vídeo
+  (que cobre quase toda a janela), e o `autoHideTimer` nunca é resetado.
+- **"Carregando" no meio do canal**: a v1.13 reload em EOF está funcionando
+  (15 ms entre EOF event e novo `loadfile`), mas o cache de 60s segura
+  o stream por ~38s depois do disconnect real, então o EOF demora a
+  borbulhar. O watchdog de 12s era lento demais pra cobrir esse caso.
+
+### App Windows — `app/`
+- **Substitui `QWindow` por classe Win32 nativa custom** (`DIGTVPlusVideoWindow`):
+  - `hbrBackground = BLACK_BRUSH` (acaba flash branco — fica preto desde o
+    primeiro instante).
+  - `WindowProc` próprio com `CS_DBLCLKS`, encaminhando `WM_MOUSEMOVE` →
+    signal `MpvObject::userActivity` (QML chama `showUI()` → sidebar volta),
+    `WM_LBUTTONDBLCLK` → signal `videoDoubleClicked` (toggle fullscreen).
+  - `CreateWindowExW` direto com `WS_CHILD | WS_CLIPSIBLINGS` como filho
+    do HWND do `QQuickWindow`. Geometria sincronizada via `SetWindowPos`.
+- **mpv `input-default-bindings=no` / `input-vo-keyboard=no` / `input-cursor=no`**:
+  garante que mpv não interfira com eventos de input — todos sobem pro
+  WindowProc nosso ou pra Qt.
+- **Watchdog 12s → 6s** no `StreamPlayer`: stalls não-EOF (buffer underrun
+  sem EOF formal) recuperam mais rápido.
+
+### Não alterado a pedido
+Qualidade de imagem mantida (`hwdec=auto-safe`, defaults do mpv, sem
+`profile=gpu-hq`). Buffers de cache mantidos (60s).
+
 ## v1.13 - 2026-05-27
 Reduz drasticamente o "Carregando…" no meio do canal.
 

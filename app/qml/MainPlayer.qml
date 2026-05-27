@@ -239,6 +239,11 @@ Item {
                 // canal" e "Carregando..." da QML permanecem visíveis por baixo.
                 visible: mpv.playing
                 Component.onCompleted: player.attach(mpv)
+                // Forward de eventos da janela nativa Win32: WM_MOUSEMOVE
+                // reverte o auto-hide da sidebar, e duplo-clique toggle fullscreen
+                // (eventos do HWND filho nunca chegam ao Qt sem isso).
+                onUserActivity: root.showUI()
+                onVideoDoubleClicked: root.toggleFullscreen()
             }
 
             // Botões topo-direito (escondem junto com a sidebar)

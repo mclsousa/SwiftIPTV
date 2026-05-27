@@ -2,10 +2,13 @@
 #include <QtQuick/QQuickItem>
 #include <QVariant>
 #include <QStringList>
-#include <QPointer>
+
+#ifdef _WIN32
+// HWND opaco na header pra não puxar <windows.h>
+using HWND_HANDLE = struct HWND__*;
+#endif
 
 struct mpv_handle;
-class QWindow;
 
 // Item de "porta para o vídeo" no Qt Quick. Diferente da v1.0..v1.10 (que
 // usava QQuickFramebufferObject + OpenGL FBO), a v1.11 embute uma janela
@@ -60,6 +63,11 @@ signals:
     void fileLoaded();
     void endFile(int reason);
     void mpvError(const QString& message);
+    // Emitidos quando WM_MOUSEMOVE / WM_LBUTTONDBLCLK chegam na janela
+    // nativa de vídeo — usados pela QML pra reverter o auto-hide da sidebar
+    // e alternar fullscreen quando o usuário interage com o vídeo.
+    void userActivity();
+    void videoDoubleClicked();
 
 protected:
     void itemChange(ItemChange change, const ItemChangeData& data) override;
@@ -77,10 +85,14 @@ private:
 
     mpv_handle* m_mpv = nullptr;
 
-    // Janela filha Win32 (gerenciada como QWindow Qt) onde o mpv renderiza
-    // direto via vo=gpu --gpu-api=d3d11.
-    QPointer<QWindow> m_videoWindow;
-    QPointer<QWindow> m_parentWindow;
+    // Janela filha Win32 nativa onde o mpv renderiza via vo=gpu --gpu-api=d3d11.
+    // Criada via CreateWindowEx com WNDCLASS dedicada (hbrBackground=BLACK_BRUSH)
+    // pra eliminar flash branco; WindowProc próprio forward de WM_MOUSEMOVE /
+    // WM_LBUTTONDBLCLK pra fazer auto-hide da sidebar reverter ao mover mouse.
+#ifdef _WIN32
+    HWND_HANDLE m_videoHwnd = nullptr;
+    HWND_HANDLE m_parentHwnd = nullptr;
+#endif
 
     bool   m_paused = false;
     int    m_volume = 100;

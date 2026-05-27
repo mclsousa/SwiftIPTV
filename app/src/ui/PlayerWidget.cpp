@@ -4,10 +4,8 @@
 #include <QtQuick/QQuickWindow>
 #include <QtGui/QWindow>
 #include <QMetaObject>
-#include <QTimer>
 #include <QPoint>
 #include <QSize>
-#include <QByteArray>
 
 #include <mpv/client.h>
 
@@ -15,44 +13,78 @@
 #  include <windows.h>
 #endif
 
-#ifdef _WIN32
-// QWindow customizado que intercepta WM_ERASEBKGND e pinta a área cliente
-// de preto antes do mpv ter o primeiro frame. Sem isto, o Windows pinta
-// com hbrBackground=WHITE_BRUSH default → flash branco visível por ~1s
-// entre a janela aparecer e o D3D11 do mpv apresentar o primeiro frame.
-class BlackBackedWindow : public QWindow {
-public:
-    explicit BlackBackedWindow(QWindow* parent = nullptr) : QWindow(parent) {}
-protected:
-    bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override {
-        if (eventType == "windows_generic_MSG") {
-            MSG* msg = static_cast<MSG*>(message);
-            if (msg->message == WM_ERASEBKGND) {
-                HDC hdc = reinterpret_cast<HDC>(msg->wParam);
-                RECT rect;
-                GetClientRect(msg->hwnd, &rect);
-                FillRect(hdc, &rect, reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
-                *result = 1;
-                return true;
-            }
-        }
-        return QWindow::nativeEvent(eventType, message, result);
-    }
-};
-#endif
+// ---------------------------------------------------------------------------
+// MpvObject — gerencia uma janela nativa Win32 filha onde o mpv renderiza
+// diretamente via vo=gpu+gpu-api=d3d11 (sem OpenGL, sem cópia por Qt).
+//
+// Por que NÃO usamos QWindow (como na v1.11-v1.13):
+//   1) A classe interna do Qt para QWindow tem hbrBackground = COLOR_WINDOW
+//      (≈ branco), e o Windows pinta com esse brush ANTES de WM_ERASEBKGND
+//      ser entregue ao nosso nativeEvent. Resultado: flash branco no boot
+//      da janela. Com classe própria + BLACK_BRUSH, o flash some.
+//   2) QWindow consome WM_MOUSEMOVE para uso interno, não permitindo forward
+//      para a UI Qt. Com WindowProc próprio, conseguimos sinalizar atividade
+//      do mouse de volta pro QQuickItem, reabilitando o auto-show da sidebar.
+// ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// MpvObject — embute uma janela filha Win32 dentro da janela Qt principal e
-// faz o mpv renderizar nela diretamente (vo=gpu, gpu-api=d3d11). Sem FBO
-// OpenGL, sem cópia intermediária — caminho nativo igual ao do ProgDVB.
-// ---------------------------------------------------------------------------
+#ifdef _WIN32
+namespace {
+constexpr wchar_t kVideoClassName[] = L"DIGTVPlusVideoWindow";
+
+LRESULT CALLBACK VideoWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    auto* self = reinterpret_cast<MpvObject*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+    switch (msg) {
+        case WM_ERASEBKGND:
+            // O hbrBackground da classe (BLACK_BRUSH) já cobre isso, mas
+            // retornamos 1 explicitamente pra garantir que o Windows não
+            // peça outro paint inútil.
+            return 1;
+        case WM_PAINT: {
+            // mpv pinta via D3D11 Present; satisfazemos o ciclo de paint
+            // do Windows com Begin/EndPaint sem desenhar nada.
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            (void)hdc;
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        case WM_MOUSEMOVE:
+            // Sinaliza atividade do usuário pra reverter auto-hide da sidebar.
+            if (self) QMetaObject::invokeMethod(self, "userActivity", Qt::QueuedConnection);
+            break;
+        case WM_LBUTTONDBLCLK:
+            if (self) QMetaObject::invokeMethod(self, "videoDoubleClicked", Qt::QueuedConnection);
+            return 0;
+        default:
+            break;
+    }
+    return DefWindowProcW(hwnd, msg, wp, lp);
+}
+
+bool ensureVideoClassRegistered() {
+    static bool registered = false;
+    if (registered) return true;
+    WNDCLASSEXW wc{};
+    wc.cbSize = sizeof(wc);
+    wc.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS; // CS_DBLCLKS habilita WM_LBUTTONDBLCLK
+    wc.lpfnWndProc = VideoWndProc;
+    wc.hInstance = GetModuleHandleW(nullptr);
+    wc.hbrBackground = reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
+    wc.lpszClassName = kVideoClassName;
+    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    if (!RegisterClassExW(&wc)) {
+        DWORD err = GetLastError();
+        if (err != ERROR_CLASS_ALREADY_EXISTS) return false;
+    }
+    registered = true;
+    return true;
+}
+} // namespace
+#endif // _WIN32
 
 MpvObject::MpvObject(QQuickItem* parent) : QQuickItem(parent) {
-    // O item em si não desenha nada — a janela filha que cobre essa área é
-    // que mostra o vídeo. Sinalizamos para o Qt Quick não tentar pintar.
+    // O QQuickItem em si não pinta — a janela nativa filha cobre essa área.
     setFlag(ItemHasContents, false);
-    // Sincroniza a janela filha quando o item esconde/aparece (caso de
-    // navegação entre telas, fullscreen, etc.)
     connect(this, &QQuickItem::visibleChanged, this, &MpvObject::syncVideoWindow);
 }
 
@@ -60,8 +92,6 @@ MpvObject::~MpvObject() {
     teardownMpv();
 }
 
-// O item entrou em uma cena/janela Qt — momento de criar a janela filha
-// e iniciar o mpv.
 void MpvObject::itemChange(ItemChange change, const ItemChangeData& data) {
     QQuickItem::itemChange(change, data);
     if (change == ItemSceneChange) {
@@ -69,7 +99,6 @@ void MpvObject::itemChange(ItemChange change, const ItemChangeData& data) {
         if (w && !m_mpv) {
             initializeMpv(w);
         } else if (!w && m_mpv) {
-            // Saindo de cena: desliga o mpv.
             teardownMpv();
         }
     }
@@ -81,82 +110,77 @@ void MpvObject::geometryChange(const QRectF& newGeometry, const QRectF& oldGeome
 }
 
 void MpvObject::syncVideoWindow() {
-    if (!m_videoWindow || !window()) return;
-    // Se o QQuickItem está escondido (navegação entre telas, etc.), esconde
-    // a janela filha junto pra não cobrir QML por trás.
-    if (!isVisible()) { m_videoWindow->setVisible(false); return; }
-    // Posição no espaço da janela Qt (= coordenadas do client area, que é o
-    // que o QWindow filho enxerga ao ser posicionado relativo ao pai).
+#ifdef _WIN32
+    if (!m_videoHwnd || !window()) return;
+    const HWND hwnd = reinterpret_cast<HWND>(m_videoHwnd);
+    if (!isVisible()) { ShowWindow(hwnd, SW_HIDE); return; }
     const QPointF inWindow = mapToScene(QPointF(0, 0));
-    const QSize sz(qMax(1, int(width())), qMax(1, int(height())));
-    m_videoWindow->setPosition(inWindow.toPoint());
-    m_videoWindow->resize(sz);
-    m_videoWindow->setVisible(sz.width() > 1 && sz.height() > 1);
+    const int x = int(inWindow.x());
+    const int y = int(inWindow.y());
+    const int w = qMax(1, int(width()));
+    const int h = qMax(1, int(height()));
+    SetWindowPos(hwnd, nullptr, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
+    ShowWindow(hwnd, (w > 1 && h > 1) ? SW_SHOWNOACTIVATE : SW_HIDE);
+#else
+    Q_UNUSED(this);
+#endif
 }
 
 void MpvObject::initializeMpv(QWindow* parentWindow) {
-    m_parentWindow = parentWindow;
-
-    // 1) Cria a janela filha nativa Win32 que vai hospedar o render do mpv.
-    //    BlackBackedWindow pinta a área cliente de preto em WM_ERASEBKGND,
-    //    evitando o flash branco antes do mpv apresentar o primeiro frame.
 #ifdef _WIN32
-    m_videoWindow = new BlackBackedWindow(parentWindow);
-#else
-    m_videoWindow = new QWindow(parentWindow);
-#endif
-    m_videoWindow->setFlags(Qt::FramelessWindowHint);
-    // surface type Raster: leve, sem tentar inicializar OpenGL/Vulkan que não
-    // usamos (mpv cria sua própria swapchain D3D11 na HWND).
-    m_videoWindow->setSurfaceType(QSurface::RasterSurface);
-    m_videoWindow->create();                                // realiza HWND
-    m_videoWindow->setObjectName("MpvVideoWindow");
-
-#ifdef _WIN32
-    // O QWindow no Windows gera um HWND com WS_POPUP por padrão. Para o mpv
-    // se comportar como janela filha "ancorada" dentro do player, ajustamos
-    // o style.
-    const HWND hwnd = reinterpret_cast<HWND>(m_videoWindow->winId());
-    const HWND parentHwnd = parentWindow ? reinterpret_cast<HWND>(parentWindow->winId()) : nullptr;
-    if (hwnd) {
-        LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
-        style = (style & ~WS_POPUP) | WS_CHILD | WS_CLIPSIBLINGS;
-        SetWindowLongPtr(hwnd, GWL_STYLE, style);
-        if (parentHwnd) {
-            SetParent(hwnd, parentHwnd);
-        }
+    if (!ensureVideoClassRegistered()) {
+        emit mpvError("Falha ao registrar classe de janela de vídeo");
+        return;
     }
+    m_parentHwnd = reinterpret_cast<HWND_HANDLE>(parentWindow->winId());
+
+    HWND childHwnd = CreateWindowExW(
+        0,                                  // dwExStyle
+        kVideoClassName,
+        L"",
+        WS_CHILD | WS_CLIPSIBLINGS,         // sem WS_VISIBLE; syncVideoWindow mostra
+        0, 0, 1, 1,
+        reinterpret_cast<HWND>(m_parentHwnd),
+        nullptr,
+        GetModuleHandleW(nullptr),
+        nullptr);
+    if (!childHwnd) {
+        emit mpvError("CreateWindowEx falhou pra janela de vídeo");
+        return;
+    }
+    m_videoHwnd = reinterpret_cast<HWND_HANDLE>(childHwnd);
+    SetWindowLongPtrW(childHwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+
+    syncVideoWindow();
+#else
+    Q_UNUSED(parentWindow);
 #endif
 
-    // 2) Posiciona a janela filha onde o QQuickItem está.
-    syncVideoWindow();
-
-    // 3) Cria a instância do mpv (não inicializa ainda).
     m_mpv = mpv_create();
     if (!m_mpv) { emit mpvError("mpv_create falhou"); return; }
 
-    // 4) Configura mpv ANTES de mpv_initialize.
-    // Saída de vídeo: vo=gpu com backend D3D11 — pipeline nativo Windows,
-    // o mesmo caminho que players como ProgDVB usam (decodificação DXVA +
-    // present D3D11), sem cópias por Qt/OpenGL.
+    // Saída de vídeo: vo=gpu + D3D11 nativo, igual ao ProgDVB.
     mpv_set_option_string(m_mpv, "vo", "gpu");
     mpv_set_option_string(m_mpv, "gpu-api", "d3d11");
     mpv_set_option_string(m_mpv, "gpu-context", "d3d11");
 
-    // wid: HWND da janela onde o mpv vai renderizar. Tem que ser string
-    // representando o ponteiro em decimal (uintptr_t).
+    // wid: HWND filho onde o mpv vai apresentar.
 #ifdef _WIN32
-    const HWND wid = reinterpret_cast<HWND>(m_videoWindow->winId());
-    const QString widStr = QString::number(reinterpret_cast<quintptr>(wid));
-    mpv_set_option_string(m_mpv, "wid", widStr.toLocal8Bit().constData());
+    if (m_videoHwnd) {
+        const QString widStr = QString::number(reinterpret_cast<quintptr>(m_videoHwnd));
+        mpv_set_option_string(m_mpv, "wid", widStr.toLocal8Bit().constData());
+    }
 #endif
 
-    // Hardware decode: zero-copy quando possível. auto-safe deixa o mpv
-    // escolher o melhor backend disponível (DXVA2 / D3D11VA) e cai para
-    // software se o codec não puder ser HW-decoded.
+    // Não deixar mpv interceptar teclado/mouse — esses devem subir pra Qt.
+    mpv_set_option_string(m_mpv, "input-default-bindings", "no");
+    mpv_set_option_string(m_mpv, "input-vo-keyboard", "no");
+    mpv_set_option_string(m_mpv, "input-cursor", "no");
+
+    // Decoder: auto-safe (intacto a pedido do usuário — qualidade está ótima).
     mpv_set_option_string(m_mpv, "hwdec", "auto-safe");
 
-    // Buffer/cache — generoso pra absorver oscilações da CDN sem trava.
+    // Buffers/cache — generosos pra absorver oscilações da CDN.
     mpv_set_option_string(m_mpv, "cache", "yes");
     mpv_set_option_string(m_mpv, "cache-secs", "60");
     mpv_set_option_string(m_mpv, "demuxer-readahead-secs", "5");
@@ -166,7 +190,7 @@ void MpvObject::initializeMpv(QWindow* parentWindow) {
     mpv_set_option_string(m_mpv, "cache-pause-initial", "no");
     mpv_set_option_string(m_mpv, "audio-buffer", "1");
 
-    // Reconexão pra streams IPTV instáveis.
+    // Reconexão automática (as flags lavf nem sempre pegam, mas não fazem mal).
     mpv_set_option_string(m_mpv, "demuxer-lavf-o",
         "fflags=+nobuffer+discardcorrupt,reconnect=1,reconnect_streamed=1,"
         "reconnect_delay_max=2,reconnect_at_eof=1");
@@ -179,24 +203,22 @@ void MpvObject::initializeMpv(QWindow* parentWindow) {
     mpv_set_option_string(m_mpv, "video-sync", "audio");
     mpv_set_option_string(m_mpv, "framedrop", "vo");
 
-    // UA de browser real — Cloudflare/WAF bloqueia UAs custom.
+    // UA Chrome real (Cloudflare bloqueia UAs custom).
     mpv_set_option_string(m_mpv, "user-agent",
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
-    // Log do mpv pra diagnóstico.
+    // Log
     const QString logPath = Settings::appDir() + "/mpv.log";
     mpv_set_option_string(m_mpv, "log-file", logPath.toLocal8Bit().constData());
     mpv_request_log_messages(m_mpv, "info");
 
-    // 5) Inicializa de fato.
     if (mpv_initialize(m_mpv) < 0) {
         emit mpvError("mpv_initialize falhou");
         teardownMpv();
         return;
     }
 
-    // 6) Propriedades observadas pra alimentar a UI.
     mpv_observe_property(m_mpv, 0, "pause",            MPV_FORMAT_FLAG);
     mpv_observe_property(m_mpv, 0, "volume",           MPV_FORMAT_DOUBLE);
     mpv_observe_property(m_mpv, 0, "duration",         MPV_FORMAT_DOUBLE);
@@ -204,25 +226,27 @@ void MpvObject::initializeMpv(QWindow* parentWindow) {
     mpv_observe_property(m_mpv, 0, "core-idle",        MPV_FORMAT_FLAG);
     mpv_observe_property(m_mpv, 0, "paused-for-cache", MPV_FORMAT_FLAG);
 
-    // 7) Callback para acordar a fila de eventos.
     mpv_set_wakeup_callback(m_mpv, &MpvObject::onWakeup, this);
 }
 
 void MpvObject::teardownMpv() {
     if (m_mpv) {
-        // Avisa o mpv pra parar de buscar dados de rede antes do destroy —
-        // evita o destrutor bloquear esperando timeouts de socket.
         mpv_set_wakeup_callback(m_mpv, nullptr, nullptr);
         mpv_abort_async_command(m_mpv, 0);
         mpv_command_string(m_mpv, "stop");
         mpv_terminate_destroy(m_mpv);
         m_mpv = nullptr;
     }
-    if (m_videoWindow) {
-        m_videoWindow->setVisible(false);
-        m_videoWindow->deleteLater();
-        m_videoWindow = nullptr;
+#ifdef _WIN32
+    if (m_videoHwnd) {
+        HWND hwnd = reinterpret_cast<HWND>(m_videoHwnd);
+        // Remove userdata pra evitar callback acessar this destruído
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
+        DestroyWindow(hwnd);
+        m_videoHwnd = nullptr;
     }
+    m_parentHwnd = nullptr;
+#endif
 }
 
 void MpvObject::onWakeup(void* ctx) {
@@ -243,13 +267,10 @@ void MpvObject::handleEvent(void* event) {
     auto* ev = static_cast<mpv_event*>(event);
     switch (ev->event_id) {
         case MPV_EVENT_START_FILE:
-            // Novo loadfile chegou: stream ainda não tocou. Esconde a janela
-            // de vídeo enquanto o "Carregando..." da QML aparece.
             if (m_playing) { m_playing = false; emit playingChanged(); }
             emit fileStarted();
             break;
         case MPV_EVENT_FILE_LOADED:
-            // Primeiro frame disponível: agora pode exibir a janela de vídeo.
             if (!m_playing) { m_playing = true; emit playingChanged(); }
             emit fileLoaded();
             break;
@@ -280,7 +301,6 @@ void MpvObject::handleEvent(void* event) {
     }
 }
 
-// --- Comandos ---
 namespace {
 struct NodeList {
     mpv_node node{};
@@ -288,7 +308,6 @@ struct NodeList {
     mpv_node_list inner{};
     QList<mpv_node> values;
 };
-
 void buildNodeList(NodeList& out, const QStringList& list) {
     out.node.format = MPV_FORMAT_NODE_ARRAY;
     out.inner.num = list.size();

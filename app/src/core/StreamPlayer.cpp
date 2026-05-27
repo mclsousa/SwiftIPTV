@@ -50,12 +50,13 @@ void StreamPlayer::attach(QObject* mpvObject) {
             m_prefetch->warm(urls);
         }
     });
-    // Watchdog: se o mpv ficar mais de 12s em buffering (paused-for-cache ou
+    // Watchdog: se o mpv ficar mais de 6s em buffering (paused-for-cache ou
     // core-idle == true), assume que reconexão falhou e força reload do canal.
+    // (era 12s na v1.13; reduzido pra resposta mais rápida a stalls não-EOF.)
     connect(m_mpv, &MpvObject::bufferingChanged, this, [this]{
         if (!m_mpv) return;
         if (m_mpv->buffering()) {
-            m_stallWatchdog->start(12'000);
+            m_stallWatchdog->start(6'000);
         } else {
             m_stallWatchdog->stop();
             m_reloadAttempts = 0;
