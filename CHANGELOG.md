@@ -9,6 +9,29 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.4 - 2026-05-27
+Streams começavam a tocar e em segundos voltavam para "Carregando…"
+(buffer underrun em qualquer micro-corte de rede).
+
+### App Windows — `app/`
+- Removido `profile=low-latency` do libmpv. O perfil aplica defaults muito
+  agressivos (cache=no, buffers mínimos) pensados para streaming local em
+  rede confiável; em streams IPTV via Cloudflare qualquer hiccup de rede
+  era suficiente para pausar a reprodução em loop.
+- Cache do mpv expandido para um perfil "VLC-like":
+  - `cache-secs` 10 → 30 s
+  - `demuxer-readahead-secs` 2 → 10 s
+  - `demuxer-max-bytes` 32 MiB → 150 MiB
+  - novo `demuxer-max-back-bytes=50 MiB`
+- Reconexão automática mais agressiva: `reconnect_delay_max=2`,
+  `reconnect_at_eof=1`, e `stream-lavf-o` com os mesmos flags do
+  `demuxer-lavf-o` para que stream e demuxer compartilhem a política.
+- `network-timeout` 5 s → 10 s (a redução para 5 s na v1.3 era pra trocar
+  de canal mais rápido, mas estava cortando reconexões válidas em streams
+  com latência maior).
+- `+discardcorrupt` no `fflags` para descartar pacotes TS quebrados em vez
+  de travar o decoder.
+
 ## v1.3 - 2026-05-27
 Vídeo invertido + travamento entre canais da mesma categoria.
 

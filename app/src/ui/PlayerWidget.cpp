@@ -103,13 +103,22 @@ MpvObject::MpvObject(QQuickItem* parent) : QQuickFramebufferObject(parent) {
     //  resultando em tela preta sem mensagem de erro.)
     mpv_set_option_string(m_mpv, "hwdec", "auto-safe");
     mpv_set_option_string(m_mpv, "vo", "libmpv");
-    mpv_set_option_string(m_mpv, "profile", "low-latency");
+    // profile=low-latency aplica defaults muito agressivos (cache=no, etc.) que
+    // ficam apertados demais para streams IPTV reais via Cloudflare e quedam de
+    // buffer com qualquer microcorte de rede. Aplicamos manualmente abaixo.
     mpv_set_option_string(m_mpv, "cache", "yes");
-    mpv_set_option_string(m_mpv, "cache-secs", "10");
-    mpv_set_option_string(m_mpv, "demuxer-readahead-secs", "2");
-    mpv_set_option_string(m_mpv, "demuxer-max-bytes", "32MiB");
-    mpv_set_option_string(m_mpv, "demuxer-lavf-o", "fflags=+nobuffer,reconnect=1,reconnect_streamed=1");
-    mpv_set_option_string(m_mpv, "network-timeout", "5");
+    mpv_set_option_string(m_mpv, "cache-secs", "30");
+    mpv_set_option_string(m_mpv, "demuxer-readahead-secs", "10");
+    mpv_set_option_string(m_mpv, "demuxer-max-bytes", "150MiB");
+    mpv_set_option_string(m_mpv, "demuxer-max-back-bytes", "50MiB");
+    // reconnect + retries para sobreviver a quedas curtas de conexão sem
+    // pausar a UI em "Carregando..." indefinidamente.
+    mpv_set_option_string(m_mpv, "demuxer-lavf-o",
+        "fflags=+nobuffer+discardcorrupt,reconnect=1,reconnect_streamed=1,"
+        "reconnect_delay_max=2,reconnect_at_eof=1");
+    mpv_set_option_string(m_mpv, "stream-lavf-o",
+        "reconnect=1,reconnect_streamed=1,reconnect_delay_max=2");
+    mpv_set_option_string(m_mpv, "network-timeout", "10");
     mpv_set_option_string(m_mpv, "hr-seek", "yes");
     mpv_set_option_string(m_mpv, "keep-open", "no");
     mpv_set_option_string(m_mpv, "force-seekable", "no");
