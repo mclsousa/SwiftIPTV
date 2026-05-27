@@ -9,6 +9,39 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.9 - 2026-05-27
+Pacote de polimentos: tela inicial, qualidade de imagem e estabilidade.
+
+### App Windows — `app/`
+- **"Carregando…" eterno na tela inicial corrigido**. Aparecia logo após
+  o login, antes de qualquer clique. Causa: `MpvObject` mapeava
+  `core-idle=true` (mpv sem arquivo) como `m_buffering=true`. No estado
+  inicial, `core-idle` fica `true` e o QML achava que estava buffering
+  pra sempre. Fix: o "Carregando…" só aparece se `mpv.buffering` E
+  `player.currentId !== ""`. Sem canal selecionado, exibe "Selecione
+  um canal" cinza no centro.
+
+- **Buffer dobrado pra eliminar travadas momentâneas**. Usuário relatou
+  "canal toca e trava, depois volta". É o comportamento de buffer
+  underrun: quando o cache esvazia, mpv freezeia no último frame até
+  chegar mais dados. Aumentado:
+  - `cache-secs` 30 → 60
+  - `demuxer-readahead-secs` 3 → 5
+  - `demuxer-max-bytes` 150 MiB → 300 MiB
+  - `demuxer-max-back-bytes` 50 MiB → 100 MiB
+  - `audio-buffer` 0.2 s → 1 s
+  Início levemente mais lento (~2 s a mais), mas absorve oscilações
+  da rede sem freeze visível.
+
+- **Qualidade de imagem melhor com `profile=gpu-hq`**. Aplica o conjunto
+  curado pelo mpv: scaler `spline36`, dithering, sigmoid upscaling,
+  deband. Notavelmente mais nítido para streams IPTV 720p/1080p que
+  precisam ser upscaled para resoluções de tela maiores. Custa um pouco
+  mais de GPU mas a maioria das placas integradas modernas dá conta.
+
+- **Remoção de `audio-buffer` duplicado**: estava sendo setado para
+  0.2 s mais abaixo, sobrescrevendo o 1 s. Agora unificado.
+
 ## v1.8 - 2026-05-27
 Ajustes de UX e estabilidade de longo prazo.
 

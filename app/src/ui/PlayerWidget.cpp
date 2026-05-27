@@ -107,20 +107,21 @@ MpvObject::MpvObject(QQuickItem* parent) : QQuickFramebufferObject(parent) {
     mpv_set_option_string(m_mpv, "hwdec", "auto-copy");
     mpv_set_option_string(m_mpv, "vo", "libmpv");
 
-    // --- Buffer/cache: equilíbrio entre troca rápida e resiliência a quedas ---
+    // --- Buffer/cache: prioridade total em NÃO travar, mesmo que o início
+    //     leve mais alguns segundos pra começar a tocar. ---
     mpv_set_option_string(m_mpv, "cache", "yes");
-    mpv_set_option_string(m_mpv, "cache-secs", "30");
-    // Lê adiante 3s antes de começar a exibir; antes (10s) deixava a troca de
-    // canal lenta. Após começar, segue enchendo até cache-secs=30.
-    mpv_set_option_string(m_mpv, "demuxer-readahead-secs", "3");
-    mpv_set_option_string(m_mpv, "demuxer-max-bytes", "150MiB");
-    mpv_set_option_string(m_mpv, "demuxer-max-back-bytes", "50MiB");
+    mpv_set_option_string(m_mpv, "cache-secs", "60");           // dobrado (era 30)
+    mpv_set_option_string(m_mpv, "demuxer-readahead-secs", "5"); // mais cushion (era 3)
+    mpv_set_option_string(m_mpv, "demuxer-max-bytes", "300MiB"); // dobrado (era 150)
+    mpv_set_option_string(m_mpv, "demuxer-max-back-bytes", "100MiB");
     // CRÍTICO para IPTV ao vivo: não pausa a reprodução quando o buffer
     // momentaneamente esgota — apenas tenta repor em paralelo enquanto
-    // continua mostrando o último frame. Antes ficava preso em "Carregando..."
-    // indefinidamente se a rede oscilasse.
+    // continua mostrando o último frame.
     mpv_set_option_string(m_mpv, "cache-pause", "no");
     mpv_set_option_string(m_mpv, "cache-pause-initial", "no");
+    // Buffer de áudio bem maior — permite manter áudio rolando enquanto a
+    // rede se recupera, evitando o "freeze + retomada" do vídeo.
+    mpv_set_option_string(m_mpv, "audio-buffer", "1");
 
     // reconnect + retries para sobreviver a quedas curtas de conexão.
     mpv_set_option_string(m_mpv, "demuxer-lavf-o",
@@ -132,8 +133,12 @@ MpvObject::MpvObject(QQuickItem* parent) : QQuickFramebufferObject(parent) {
     mpv_set_option_string(m_mpv, "hr-seek", "yes");
     mpv_set_option_string(m_mpv, "keep-open", "no");
     mpv_set_option_string(m_mpv, "force-seekable", "no");
-    mpv_set_option_string(m_mpv, "audio-buffer", "0.2");
+    // (audio-buffer já configurado acima como 1s pro caso de stutters)
     mpv_set_option_string(m_mpv, "video-sync", "audio");
+    // --- Qualidade de imagem: gpu-hq aplica o conjunto curado pelo mpv:
+    // scaler spline36, dithering, sigmoid upscaling, deband, etc. Notavelmente
+    // mais nítido em streams 720p/1080p que precisam ser upscaled na tela. ---
+    mpv_set_option_string(m_mpv, "profile", "gpu-hq");
     // User-Agent de browser real: vários servidores IPTV atrás de Cloudflare/WAF
     // bloqueiam UAs custom como "SwiftIPTV/1.0" devolvendo 403 ou stream vazio.
     mpv_set_option_string(m_mpv, "user-agent",

@@ -266,9 +266,20 @@ Item {
                 }
             }
 
-            // Buffering
+            // Mensagem central no player:
+            //   - sem canal selecionado: "Selecione um canal"
+            //   - com canal selecionado, mas mpv em buffering: "Carregando…"
+            //   - reproduzindo: nada (vídeo cobre)
+            // Antes o "Carregando…" aparecia eternamente no boot porque
+            // mpv-core-idle=true (sem arquivo) era tratado como buffering.
             Text {
-                anchors.centerIn: parent; visible: mpv.buffering
+                anchors.centerIn: parent
+                visible: !player.currentId || player.currentId === ""
+                text: "Selecione um canal"; color: "#a0a8b8"; font.pixelSize: 18
+            }
+            Text {
+                anchors.centerIn: parent
+                visible: mpv.buffering && player.currentId && player.currentId !== ""
                 text: "Carregando..."; color: "white"; font.pixelSize: 16
             }
 
