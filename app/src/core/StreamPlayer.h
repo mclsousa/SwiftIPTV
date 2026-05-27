@@ -49,6 +49,12 @@ private:
     PrefetchEngine* m_prefetch;
     MpvObject*      m_mpv = nullptr;
     QTimer*         m_iframeTimer = nullptr;
+    // Watchdog que dispara um re-loadfile do canal atual se o player ficar
+    // mais de N segundos em "buffering" (paused-for-cache / core-idle). Para
+    // canais IPTV ao vivo onde o servidor pode dropar a conexão sem aviso,
+    // os reconnect flags do ffmpeg às vezes não bastam — o re-loadfile força.
+    QTimer*         m_stallWatchdog = nullptr;
+    int             m_reloadAttempts = 0;
 
     Channel m_current;
     int     m_currentRow = -1;

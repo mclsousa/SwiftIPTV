@@ -10,6 +10,22 @@ StreamPlayer::StreamPlayer(ChannelManager* channels, PrefetchEngine* prefetch, Q
     m_iframeTimer = new QTimer(this);
     m_iframeTimer->setSingleShot(true);
     connect(m_iframeTimer, &QTimer::timeout, this, [this]{ emit slowStart(); });
+
+    m_stallWatchdog = new QTimer(this);
+    m_stallWatchdog->setSingleShot(true);
+    connect(m_stallWatchdog, &QTimer::timeout, this, [this]{
+        if (!m_mpv || m_current.url.isEmpty()) return;
+        // Reload no canal atual: força o demuxer a abrir conexão nova.
+        // Limita o número de retries pra não rodar em loop em canal morto.
+        if (m_reloadAttempts >= 3) {
+            emit slowStart();
+            return;
+        }
+        ++m_reloadAttempts;
+        m_mpv->command(QStringList{"loadfile", m_current.url, "replace"});
+        // Se ainda continuar em buffering depois do reload, watchdog dispara
+        // de novo (re-armado pelo onBufferingChanged abaixo).
+    });
 }
 
 void StreamPlayer::attach(QObject* mpvObject) {
@@ -17,6 +33,8 @@ void StreamPlayer::attach(QObject* mpvObject) {
     if (!m_mpv) return;
     connect(m_mpv, &MpvObject::fileLoaded, this, [this]{
         m_iframeTimer->stop();
+        m_reloadAttempts = 0;          // tocou: zera o contador do watchdog
+        m_stallWatchdog->stop();
         m_lastSwitchMs = int(m_switchClock.isValid() ? m_switchClock.elapsed() : 0);
         emit switchTimed(m_lastSwitchMs);
         // Aquece os vizinhos para a próxima troca ser instantânea.
@@ -32,12 +50,25 @@ void StreamPlayer::attach(QObject* mpvObject) {
             m_prefetch->warm(urls);
         }
     });
+    // Watchdog: se o mpv ficar mais de 12s em buffering (paused-for-cache ou
+    // core-idle == true), assume que reconexão falhou e força reload do canal.
+    connect(m_mpv, &MpvObject::bufferingChanged, this, [this]{
+        if (!m_mpv) return;
+        if (m_mpv->buffering()) {
+            m_stallWatchdog->start(12'000);
+        } else {
+            m_stallWatchdog->stop();
+            m_reloadAttempts = 0;
+        }
+    });
 }
 
 void StreamPlayer::playChannel(const Channel& c) {
     if (!m_mpv || c.url.isEmpty()) { emit noChannel(); return; }
 
     m_switchClock.restart();
+    m_reloadAttempts = 0;
+    m_stallWatchdog->stop();
 
     // 5. Timeout de 800ms para o I-frame (sinaliza UI; mpv segue tentando).
     m_iframeTimer->start(800);

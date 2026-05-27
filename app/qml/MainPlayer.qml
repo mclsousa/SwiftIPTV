@@ -15,6 +15,29 @@ Item {
     property string epgTimes: ""
     property real   epgProgress: 0
 
+    // --- Auto-hide da UI lateral + barra de botões ---
+    // Em fullscreen sempre escondidos. Em modo normal, escondem após 1min
+    // sem movimento de mouse; voltam ao primeiro movimento.
+    property bool   autoHidden: false
+    readonly property bool isFullscreen: Window.window && Window.window.visibility === Window.FullScreen
+    readonly property bool uiHidden: autoHidden || isFullscreen
+
+    function showUI() {
+        autoHidden = false
+        autoHideTimer.restart()
+    }
+    Timer {
+        id: autoHideTimer
+        interval: 60000        // 1 minuto
+        running: !root.isFullscreen
+        onTriggered: root.autoHidden = true
+    }
+    // Captura movimento do mouse em qualquer ponto da tela sem bloquear cliques.
+    HoverHandler {
+        id: hoverAny
+        onPointChanged: root.showUI()
+    }
+
     function activeModel() {
         if (currentTab === "favorites") return channels.favoritesModel
         if (currentTab === "history")   return channels.historyModel
@@ -35,18 +58,13 @@ Item {
 
     Component.onCompleted: {
         forceActiveFocus()
-        // Auto-play do primeiro canal ao entrar no player com lista pronta —
-        // cobre o caso "logout + login" (listReady não dispara de novo se a
-        // lista já estava carregada) e o caso de retorno do diagnóstico.
-        if (root.activeModel().count > 0 && (!player.currentId || player.currentId === "")) {
-            player.playRow(0)
-        }
+        // Não tocamos canal automaticamente: o usuário escolhe na lista.
     }
 
     Connections {
         target: channels
-        // Lista acaba de chegar (login fresco / refresh): toca o canal 0.
-        function onListReady(n) { if (n > 0) player.playRow(0) }
+        // Lista pronta: só registra (sem auto-play). O usuário escolhe o canal.
+        function onListReady(n) { Window.window.notify(n + " canais carregados") }
         function onError(m) { Window.window.notify(m) }
     }
     Connections {
@@ -84,10 +102,14 @@ Item {
 
         // ============ PAINEL ESQUERDO ============
         Rectangle {
-            Layout.preferredWidth: 300
+            id: sidebar
+            Layout.preferredWidth: root.uiHidden ? 0 : 300
             Layout.fillHeight: true
+            visible: Layout.preferredWidth > 0
             color: Theme.panel
             border.color: Theme.border
+            // Fade suave ao esconder/mostrar.
+            Behavior on Layout.preferredWidth { NumberAnimation { duration: 250; easing.type: Easing.InOutQuad } }
 
             ColumnLayout {
                 anchors.fill: parent
@@ -215,9 +237,13 @@ Item {
                 Component.onCompleted: player.attach(mpv)
             }
 
-            // Botões topo-direito (sempre visíveis)
+            // Botões topo-direito (escondem junto com a sidebar)
             RowLayout {
+                id: topButtons
                 anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 12; spacing: 8; z: 30
+                opacity: root.uiHidden ? 0 : 1
+                visible: opacity > 0
+                Behavior on opacity { NumberAnimation { duration: 250 } }
                 Button {
                     text: "Diagnóstico"
                     onClicked: app.navigate("diagnostic")

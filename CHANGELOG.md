@@ -9,6 +9,29 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.8 - 2026-05-27
+Ajustes de UX e estabilidade de longo prazo.
+
+### App Windows — `app/`
+- **Sem auto-play no login**: ao entrar no app, a lista carrega mas
+  nenhum canal começa a tocar — o usuário escolhe. Reverte o
+  `Component.onCompleted` da v1.7 que disparava `player.playRow(0)`.
+- **Auto-hide da UI em modo janela**: passa 1 minuto sem movimento de
+  mouse, a lista lateral e os botões "Diagnóstico/Sair" somem (anim
+  suave de 250ms). Qualquer movimento de mouse traz tudo de volta.
+  Implementado com `HoverHandler` no root + `Timer` de 60 s.
+- **Tela cheia limpa**: em fullscreen, sidebar e botões topo-direito
+  ficam permanentemente escondidos. Só o vídeo. O overlay inferior
+  (nome do canal, controles) continua aparecendo em movimento do
+  mouse e sumindo em 3 s.
+- **Watchdog de reconexão**: se o player ficar 12 segundos travado em
+  "Carregando..." (estado `paused-for-cache` ou `core-idle` persistente),
+  o `StreamPlayer` força um `loadfile … replace` do canal atual para
+  reabrir a conexão. Antes, os flags do ffmpeg (`reconnect=1`) às
+  vezes não conseguiam recuperar quando o servidor IPTV dropava a
+  conexão sem RST. Limite de 3 retries por canal pra não rodar em
+  loop em canal morto.
+
 ## v1.7 - 2026-05-27
 Pacote de polimentos pós-uso real:
 
