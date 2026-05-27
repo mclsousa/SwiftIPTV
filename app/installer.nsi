@@ -11,6 +11,8 @@
 !define EXENAME    "SwiftIPTV.exe"
 !define SRCDIR     "build\Release"
 
+!include "MUI2.nsh"
+
 Name "${APPNAME}"
 OutFile "SwiftIPTV-Setup.exe"
 Unicode True
@@ -20,10 +22,23 @@ RequestExecutionLevel admin
 ShowInstDetails show
 ShowUnInstDetails show
 
-Page directory
-Page instfiles
-UninstPage uninstConfirm
-UninstPage instfiles
+; --- Páginas (MUI2): Welcome -> Directory -> Install -> Finish (com RUN) ---
+!define MUI_ABORTWARNING
+
+!insertmacro MUI_PAGE_WELCOME
+!insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_INSTFILES
+
+; Página final com checkbox "Executar DIGTV+ agora" (marcado por padrão —
+; pra definir desmarcado por default, basta definir MUI_FINISHPAGE_RUN_NOTCHECKED).
+!define MUI_FINISHPAGE_RUN "$INSTDIR\${EXENAME}"
+!define MUI_FINISHPAGE_RUN_TEXT "Executar ${APPNAME} agora"
+!insertmacro MUI_PAGE_FINISH
+
+!insertmacro MUI_UNPAGE_CONFIRM
+!insertmacro MUI_UNPAGE_INSTFILES
+
+!insertmacro MUI_LANGUAGE "PortugueseBR"
 
 Section "Instalar ${APPNAME}"
     SetOutPath "$INSTDIR"

@@ -33,10 +33,19 @@ Item {
         w.visibility = (w.visibility === Window.FullScreen) ? Window.Windowed : Window.FullScreen
     }
 
-    Component.onCompleted: forceActiveFocus()
+    Component.onCompleted: {
+        forceActiveFocus()
+        // Auto-play do primeiro canal ao entrar no player com lista pronta —
+        // cobre o caso "logout + login" (listReady não dispara de novo se a
+        // lista já estava carregada) e o caso de retorno do diagnóstico.
+        if (root.activeModel().count > 0 && (!player.currentId || player.currentId === "")) {
+            player.playRow(0)
+        }
+    }
 
     Connections {
         target: channels
+        // Lista acaba de chegar (login fresco / refresh): toca o canal 0.
         function onListReady(n) { if (n > 0) player.playRow(0) }
         function onError(m) { Window.window.notify(m) }
     }
@@ -218,7 +227,13 @@ Item {
                 }
                 Button {
                     text: "Sair"
-                    onClicked: { auth.logout(); app.navigate("login") }
+                    onClicked: {
+                        // Pede pro mpv abortar streams antes da QML destruir
+                        // a MpvPlayer — reduz drasticamente a trava de 1-2s.
+                        mpv.command(["stop"])
+                        auth.logout()
+                        app.navigate("login")
+                    }
                     contentItem: Text { text: parent.text; color: Theme.bad; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter }
                     background: Rectangle { radius: 8; color: "#1f2940cc"; border.color: Theme.border }
                     leftPadding: 12; rightPadding: 12; topPadding: 7; bottomPadding: 7

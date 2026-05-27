@@ -9,6 +9,41 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.7 - 2026-05-27
+Pacote de polimentos pós-uso real:
+
+### Player
+- **HEVC/H.265 mais compatível**: `hwdec` mudou de `auto-safe` para
+  `auto-copy`. Faz copy-back GPU→RAM (alguns ms a mais), mas torna a
+  decodificação de HEVC funcional em drivers que falhavam silenciosamente
+  no caminho zero-copy.
+- **Troca de canal sem delay**: `demuxer-readahead-secs` 10 → 3. Mpv
+  começa a exibir com 3 s de buffer em vez de 10 s; continua enchendo
+  até 30 s em paralelo.
+- **Fim do "Carregando..." perpétuo**: `cache-pause=no` e
+  `cache-pause-initial=no`. Antes, qualquer queda de cache parava a
+  reprodução até a UI reagir; agora o mpv tenta repor em paralelo e
+  segue exibindo o último frame em vez de bloquear na tela "Carregando".
+
+### Logout / shutdown
+- **Botão "Sair" não trava mais antes de sair**: o destrutor do MpvObject
+  agora chama `mpv_abort_async_command` + `stop` antes do
+  `mpv_terminate_destroy`. A QML também envia `stop` antes de navegar
+  para a tela de login. Ambos eliminam a espera de timeouts de socket
+  que segurava a UI por 1–2 s.
+
+### Auto-play do primeiro canal
+- **Player abre tocando o canal 0**: além do listener atual `onListReady`,
+  agora o `Component.onCompleted` da tela do player também dispara
+  `player.playRow(0)` se nada estiver tocando. Cobre o caso "logout
+  depois login" (em que a lista já está em cache e `listReady` não
+  dispara de novo).
+
+### Instalador
+- **Checkbox "Executar DIGTV+ agora" na última página do instalador**:
+  usuário não precisa procurar o atalho no menu Iniciar depois do
+  setup. Habilitado por padrão. Página de boas-vindas em PT-BR via MUI2.
+
 ## v1.6 - 2026-05-27
 Clicar em variantes do mesmo canal (SD/HD/FHD/4K) tocava sempre a primeira
 ocorrência. Indicador visual de qual canal está tocando estava muito sutil.

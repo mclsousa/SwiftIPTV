@@ -101,18 +101,28 @@ MpvObject::MpvObject(QQuickItem* parent) : QQuickFramebufferObject(parent) {
     // para software automaticamente se o stream/codec não for suportado em HW.
     // (d3d11va forçado falha silenciosamente em algumas combinações driver+codec,
     //  resultando em tela preta sem mensagem de erro.)
-    mpv_set_option_string(m_mpv, "hwdec", "auto-safe");
+    // auto-copy: como auto-safe, mas força o "copy-back" do frame decodificado
+    // (GPU -> RAM -> GPU) — um pouco mais lento mas dramaticamente mais compatível
+    // com HEVC/H.265 entre drivers antigos. Stream H.264 segue em zero-copy.
+    mpv_set_option_string(m_mpv, "hwdec", "auto-copy");
     mpv_set_option_string(m_mpv, "vo", "libmpv");
-    // profile=low-latency aplica defaults muito agressivos (cache=no, etc.) que
-    // ficam apertados demais para streams IPTV reais via Cloudflare e quedam de
-    // buffer com qualquer microcorte de rede. Aplicamos manualmente abaixo.
+
+    // --- Buffer/cache: equilíbrio entre troca rápida e resiliência a quedas ---
     mpv_set_option_string(m_mpv, "cache", "yes");
     mpv_set_option_string(m_mpv, "cache-secs", "30");
-    mpv_set_option_string(m_mpv, "demuxer-readahead-secs", "10");
+    // Lê adiante 3s antes de começar a exibir; antes (10s) deixava a troca de
+    // canal lenta. Após começar, segue enchendo até cache-secs=30.
+    mpv_set_option_string(m_mpv, "demuxer-readahead-secs", "3");
     mpv_set_option_string(m_mpv, "demuxer-max-bytes", "150MiB");
     mpv_set_option_string(m_mpv, "demuxer-max-back-bytes", "50MiB");
-    // reconnect + retries para sobreviver a quedas curtas de conexão sem
-    // pausar a UI em "Carregando..." indefinidamente.
+    // CRÍTICO para IPTV ao vivo: não pausa a reprodução quando o buffer
+    // momentaneamente esgota — apenas tenta repor em paralelo enquanto
+    // continua mostrando o último frame. Antes ficava preso em "Carregando..."
+    // indefinidamente se a rede oscilasse.
+    mpv_set_option_string(m_mpv, "cache-pause", "no");
+    mpv_set_option_string(m_mpv, "cache-pause-initial", "no");
+
+    // reconnect + retries para sobreviver a quedas curtas de conexão.
     mpv_set_option_string(m_mpv, "demuxer-lavf-o",
         "fflags=+nobuffer+discardcorrupt,reconnect=1,reconnect_streamed=1,"
         "reconnect_delay_max=2,reconnect_at_eof=1");
@@ -151,7 +161,13 @@ MpvObject::MpvObject(QQuickItem* parent) : QQuickFramebufferObject(parent) {
 
 MpvObject::~MpvObject() {
     if (m_mpv) {
+        // Antes de tear-down: avisa pra parar de buscar dados de rede e aborta
+        // qualquer comando async pendente. Sem isto, mpv_terminate_destroy ficava
+        // bloqueado segundos esperando timeouts de socket fechar (o "trava no
+        // botão Sair" relatado).
         mpv_set_wakeup_callback(m_mpv, nullptr, nullptr);
+        mpv_abort_async_command(m_mpv, 0);
+        mpv_command_string(m_mpv, "stop");
         mpv_terminate_destroy(m_mpv);
         m_mpv = nullptr;
     }
