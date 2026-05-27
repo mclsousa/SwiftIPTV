@@ -135,10 +135,15 @@ MpvObject::MpvObject(QQuickItem* parent) : QQuickFramebufferObject(parent) {
     mpv_set_option_string(m_mpv, "force-seekable", "no");
     // (audio-buffer já configurado acima como 1s pro caso de stutters)
     mpv_set_option_string(m_mpv, "video-sync", "audio");
-    // --- Qualidade de imagem: gpu-hq aplica o conjunto curado pelo mpv:
-    // scaler spline36, dithering, sigmoid upscaling, deband, etc. Notavelmente
-    // mais nítido em streams 720p/1080p que precisam ser upscaled na tela. ---
-    mpv_set_option_string(m_mpv, "profile", "gpu-hq");
+    // framedrop=vo: se o pipeline de render atrasa (GPU integrada sobrecarregada,
+    // janela em foreground/background, etc.), dropa frames atrasados em vez de
+    // travar a reprodução. Sem isto, mpv loga "mpv_render_context_render() not
+    // being called or stuck" e o vídeo congela até o pipeline recuperar.
+    mpv_set_option_string(m_mpv, "framedrop", "vo");
+    // NÃO usar profile=gpu-hq — em testes na Intel HD Graphics 620 (laptops
+    // de 2017+ comuns), spline36+sigmoid+deband saturam a GPU e provocam o
+    // congelamento descrito acima. Defaults do mpv (bilinear) já são
+    // perfeitamente assistíveis pra IPTV.
     // User-Agent de browser real: vários servidores IPTV atrás de Cloudflare/WAF
     // bloqueiam UAs custom como "SwiftIPTV/1.0" devolvendo 403 ou stream vazio.
     mpv_set_option_string(m_mpv, "user-agent",

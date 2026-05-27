@@ -9,6 +9,26 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.10 - 2026-05-27
+Reverte `profile=gpu-hq` e adiciona framedrop pra eliminar trava-e-volta
+em GPUs integradas.
+
+### Diagnóstico (via mpv.log do usuário)
+- `GL_RENDERER='Intel(R) HD Graphics 620'` — chip integrado modesto.
+- Warnings recorrentes `mpv_render_context_render() not being called or stuck`:
+  mpv tinha frames prontos, mas o pipeline OpenGL não conseguia despachá-los
+  a tempo → vídeo congela visualmente, mas a internet/decoder estão OK.
+
+### App Windows — `app/`
+- **Removido `profile=gpu-hq`** da v1.9. Em GPUs integradas (Intel HD 620,
+  UHD 620, AMD Vega 3 etc.), os filtros (`spline36`, sigmoid, deband)
+  saturavam o shader pipeline e provocavam o "trava e volta" relatado.
+  Defaults do mpv (bilinear) são suficientes pra IPTV.
+- **Adicionado `framedrop=vo`**: quando o render atrasa por qualquer
+  motivo (GPU lenta, foco mudou, sistema sob carga), mpv agora pula
+  frames atrasados em vez de pausar a reprodução até recuperar.
+  Visualmente vê micro-stutters em vez de freeze de 1-3 s.
+
 ## v1.9 - 2026-05-27
 Pacote de polimentos: tela inicial, qualidade de imagem e estabilidade.
 
