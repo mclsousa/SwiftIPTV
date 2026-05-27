@@ -63,7 +63,10 @@ public:
         QOpenGLFramebufferObject* fbo = framebufferObject();
         mpv_opengl_fbo mpfbo{ static_cast<int>(fbo->handle()),
                               fbo->width(), fbo->height(), 0 };
-        int flip_y = 1; // Qt usa origem no canto inferior
+        // QQuickFramebufferObject já entrega o FBO com Y alinhado ao espaço de
+        // tela do Qt Quick (origem no topo). Pedir flip_y aqui faria o vídeo
+        // aparecer de cabeça para baixo.
+        int flip_y = 0;
 
         mpv_render_param params[]{
             {MPV_RENDER_PARAM_OPENGL_FBO, &mpfbo},
@@ -106,7 +109,7 @@ MpvObject::MpvObject(QQuickItem* parent) : QQuickFramebufferObject(parent) {
     mpv_set_option_string(m_mpv, "demuxer-readahead-secs", "2");
     mpv_set_option_string(m_mpv, "demuxer-max-bytes", "32MiB");
     mpv_set_option_string(m_mpv, "demuxer-lavf-o", "fflags=+nobuffer,reconnect=1,reconnect_streamed=1");
-    mpv_set_option_string(m_mpv, "network-timeout", "10");
+    mpv_set_option_string(m_mpv, "network-timeout", "5");
     mpv_set_option_string(m_mpv, "hr-seek", "yes");
     mpv_set_option_string(m_mpv, "keep-open", "no");
     mpv_set_option_string(m_mpv, "force-seekable", "no");

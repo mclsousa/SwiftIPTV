@@ -39,12 +39,14 @@ void StreamPlayer::playChannel(const Channel& c) {
 
     m_switchClock.restart();
 
-    // 1+2. Flush imediato e troca sem fechamento gracioso.
-    m_mpv->stop();
     // 5. Timeout de 800ms para o I-frame (sinaliza UI; mpv segue tentando).
     m_iframeTimer->start(800);
 
-    // 3+4. Nova conexão em paralelo; pacotes ruins são descartados pelo demuxer (nobuffer).
+    // 1-4. "loadfile ... replace" já interrompe o stream anterior, libera o
+    // demuxer/decoder e inicia a nova conexão em paralelo. Chamar stop() antes
+    // só enfileira um comando extra que pode atrasar a troca (e, em alguns
+    // casos, deixar o mpv "ocupado" o suficiente pra ignorar cliques rápidos
+    // em outros canais da mesma categoria).
     m_mpv->command(QStringList{"loadfile", c.url, "replace"});
 
     m_current = c;

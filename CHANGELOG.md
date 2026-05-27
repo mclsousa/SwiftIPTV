@@ -9,6 +9,22 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.3 - 2026-05-27
+Vídeo invertido + travamento entre canais da mesma categoria.
+
+### App Windows — `app/`
+- **Corrige vídeo de cabeça para baixo** no player. O `QQuickFramebufferObject`
+  do Qt já entrega o FBO com origem no topo (espaço de tela do Qt Quick), e o
+  código pedia ao mpv para flippar Y de novo (`flip_y=1`) — resultado: vídeo
+  rotacionado verticalmente. Trocado para `flip_y=0`.
+- **Troca de canal mais ágil**: removido `mpv stop` redundante antes do
+  `loadfile … replace`. O `replace` já interrompe o stream anterior;
+  enfileirar um `stop` extra estava deixando o mpv "ocupado" o suficiente
+  para ignorar cliques rápidos em outros canais da mesma categoria.
+- **`network-timeout` reduzido de 10s para 5s**: streams que não respondem
+  agora derrubam a tentativa em metade do tempo, liberando o decoder para
+  o próximo clique.
+
 ## v1.2 - 2026-05-27
 Correções no player libMPV: tela preta + travamento ao trocar canal em
 algumas configurações (drivers/GPUs e servidores IPTV atrás de Cloudflare/WAF).
