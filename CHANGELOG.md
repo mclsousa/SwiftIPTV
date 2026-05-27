@@ -9,6 +9,17 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.16 - 2026-05-27
+Auto-hide da sidebar/botões **5s** (era 1 min).
+
+### App Windows — `app/`
+- `autoHideTimer.interval`: 60000 → 5000 ms. A barra lateral de canais e
+  os botões topo-direito (Diagnóstico/Sair) somem após 5 s sem movimento
+  de mouse. Movimento de mouse (inclusive sobre a janela de vídeo, via
+  forward de `WM_MOUSEMOVE` da v1.14) traz a UI de volta imediatamente.
+- Fullscreen continua ocultando permanentemente — mexer o mouse não
+  reaparece (intencional: tela cheia é tela cheia).
+
 ## v1.15 - 2026-05-27
 "DIGTV+ (Não está respondendo)" ao clicar no X pra fechar.
 

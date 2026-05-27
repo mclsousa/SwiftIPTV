@@ -16,7 +16,7 @@ Item {
     property real   epgProgress: 0
 
     // --- Auto-hide da UI lateral + barra de botões ---
-    // Em fullscreen sempre escondidos. Em modo normal, escondem após 1min
+    // Em fullscreen sempre escondidos. Em modo normal, escondem após 5s
     // sem movimento de mouse; voltam ao primeiro movimento.
     property bool   autoHidden: false
     readonly property bool isFullscreen: Window.window && Window.window.visibility === Window.FullScreen
@@ -28,7 +28,7 @@ Item {
     }
     Timer {
         id: autoHideTimer
-        interval: 60000        // 1 minuto
+        interval: 5000        // 5 segundos sem movimento de mouse → some
         running: !root.isFullscreen
         onTriggered: root.autoHidden = true
     }
