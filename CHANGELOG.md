@@ -9,6 +9,29 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.6 - 2026-05-27
+Clicar em variantes do mesmo canal (SD/HD/FHD/4K) tocava sempre a primeira
+ocorrência. Indicador visual de qual canal está tocando estava muito sutil.
+
+### App Windows — `app/`
+- **Bug do tvg-id compartilhado entre variantes**: o M3U costuma marcar
+  todas as qualidades do mesmo canal (ex.: Globo SP SD/HD/FHD/4K) com o
+  mesmo `tvg-id`. O app usava esse tvg-id como ID de linha, então o índice
+  `id -> canal` mantinha apenas a última ocorrência e `playById()` tocava
+  sempre o mesmo stream, independente de qual variante o usuário clicava.
+  - Adicionado campo `tvgId` separado no `Channel`.
+  - `Channel.id` agora é sempre único (sufixo numérico: `globo-sp#17`).
+  - EPG continua casando pelo `tvg-id` original via novo
+    `player.currentTvgId`, então o guia ainda funciona para todas as
+    variantes do mesmo canal.
+  > **Atenção**: favoritos e histórico salvos com IDs da v1.5 não vão ser
+  > reconhecidos. Vai precisar refavoritar uma vez. (Os arquivos ficam em
+  > `%APPDATA%\SwiftIPTV\` se quiser conferir.)
+- **Indicador "TOCANDO AGORA" no canal atual**: barra lateral mais larga,
+  fundo mais destacado, ícone ▶ e legenda "TOCANDO AGORA" abaixo do nome
+  no item da lista. Resolve o problema de não saber qual variante (entre
+  GB SP FHD, GB SP HD, GB SP 4K…) está realmente sendo reproduzida.
+
 ## v1.5 - 2026-05-27
 Lista de canais não refletia mudanças feitas no painel do provedor IPTV
 (canais removidos/adicionados/reordenados continuavam aparecendo até o

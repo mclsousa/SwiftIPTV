@@ -7,7 +7,11 @@
 
 // Representa um canal da lista. POD leve (cópias baratas via implicit sharing das QString).
 struct Channel {
-    QString id;     // tvg-id (ou gerado se ausente) — usado também para casar com EPG
+    QString id;     // ID único de linha (tvg-id + sufixo). É o que a UI usa para
+                    // identificar/abrir o canal — NUNCA se repete na lista.
+    QString tvgId;  // tvg-id original do M3U (pode repetir entre canais — várias
+                    // qualidades do mesmo canal costumam ter o mesmo tvg-id). Usado
+                    // para casar com o XMLTV/EPG.
     QString name;   // tvg-name / título do #EXTINF
     QString logo;   // tvg-logo (URL)
     QString group;  // group-title

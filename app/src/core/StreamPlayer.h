@@ -15,6 +15,7 @@ class QTimer;
 class StreamPlayer : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString currentId READ currentId NOTIFY currentChanged)
+    Q_PROPERTY(QString currentTvgId READ currentTvgId NOTIFY currentChanged)
     Q_PROPERTY(QString currentName READ currentName NOTIFY currentChanged)
     Q_PROPERTY(QString currentGroup READ currentGroup NOTIFY currentChanged)
     Q_PROPERTY(int lastSwitchMs READ lastSwitchMs NOTIFY switchTimed)
@@ -22,6 +23,7 @@ public:
     StreamPlayer(ChannelManager* channels, PrefetchEngine* prefetch, QObject* parent = nullptr);
 
     QString currentId() const { return m_current.id; }
+    QString currentTvgId() const { return m_current.tvgId; }
     QString currentName() const { return m_current.name; }
     QString currentGroup() const { return m_current.group; }
     int lastSwitchMs() const { return m_lastSwitchMs; }

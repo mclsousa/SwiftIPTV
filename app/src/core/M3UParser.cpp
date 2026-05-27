@@ -60,7 +60,7 @@ QVector<Channel> M3UParser::parse(const QByteArray& data) {
         if (svline.startsWith(u"#EXTINF")) {
             const QString line = svline.toString();
             cur = Channel{};
-            cur.id    = attr(line, "tvg-id");
+            cur.tvgId = attr(line, "tvg-id");
             cur.name  = attr(line, "tvg-name");
             cur.logo  = attr(line, "tvg-logo");
             cur.group = attr(line, "group-title");
@@ -77,8 +77,12 @@ QVector<Channel> M3UParser::parse(const QByteArray& data) {
         } else if (haveExtinf) {
             cur.url = svline.toString().trimmed();
             cur.number = ++counter;
-            if (cur.id.isEmpty()) cur.id = QStringLiteral("ch-%1").arg(counter);
             if (cur.name.isEmpty()) cur.name = QStringLiteral("Canal %1").arg(counter);
+            // ID de linha SEMPRE único: várias variantes (SD/HD/FHD/4K) do mesmo canal
+            // compartilham o tvg-id no M3U, e usar tvg-id como ID de linha fazia clicar
+            // numa variante tocar sempre a primeira ocorrência.
+            const QString base = cur.tvgId.isEmpty() ? QStringLiteral("ch") : cur.tvgId;
+            cur.id = base + QStringLiteral("#%1").arg(counter);
             channels.push_back(std::move(cur));
             haveExtinf = false;
         }

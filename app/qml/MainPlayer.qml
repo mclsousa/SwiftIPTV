@@ -21,9 +21,12 @@ Item {
         return channels.model
     }
     function refreshEpg() {
-        epgTitle = epg.currentTitle(player.currentId)
-        epgTimes = epg.currentTimes(player.currentId)
-        epgProgress = epg.currentProgress(player.currentId)
+        // EPG é casado pelo tvg-id original do M3U (que pode repetir entre
+        // variantes do mesmo canal); player.currentId é o ID único de linha.
+        var key = player.currentTvgId ? player.currentTvgId : player.currentId
+        epgTitle = epg.currentTitle(key)
+        epgTimes = epg.currentTimes(key)
+        epgProgress = epg.currentProgress(key)
     }
     function toggleFullscreen() {
         var w = Window.window
@@ -137,8 +140,11 @@ Item {
                     delegate: Rectangle {
                         id: row
                         width: ListView.view.width; height: 54
-                        color: isCurrent ? "#1c2540" : (rowMouse.containsMouse ? Theme.panel2 : "transparent")
-                        Rectangle { width: 3; height: parent.height; color: Theme.brand; visible: isCurrent }
+                        color: isCurrent ? "#243066" : (rowMouse.containsMouse ? Theme.panel2 : "transparent")
+                        // Barra lateral mais grossa e indicador "▶" pra deixar claro
+                        // qual canal está sendo reproduzido (várias variantes do mesmo
+                        // canal têm nomes parecidos).
+                        Rectangle { width: 4; height: parent.height; color: Theme.brand; visible: isCurrent }
                         RowLayout {
                             anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 10; spacing: 10
                             Rectangle {
@@ -153,8 +159,22 @@ Item {
                             }
                             ColumnLayout {
                                 spacing: 1; Layout.fillWidth: true
-                                Text { text: name; color: isCurrent ? Theme.text : "#cdd4e4"; font.pixelSize: 13
-                                    elide: Text.ElideRight; Layout.fillWidth: true; font.bold: isCurrent }
+                                RowLayout {
+                                    spacing: 6; Layout.fillWidth: true
+                                    Text {
+                                        visible: isCurrent
+                                        text: "▶"; color: Theme.brand
+                                        font.pixelSize: 12; font.bold: true
+                                    }
+                                    Text { text: name; color: isCurrent ? Theme.text : "#cdd4e4"; font.pixelSize: 13
+                                        elide: Text.ElideRight; Layout.fillWidth: true; font.bold: isCurrent }
+                                }
+                                Text {
+                                    visible: isCurrent
+                                    text: "TOCANDO AGORA"
+                                    color: Theme.brand
+                                    font.pixelSize: 9; font.bold: true
+                                }
                             }
                             Text { text: "#" + number; color: Theme.subtext; font.pixelSize: 11 }
                         }
