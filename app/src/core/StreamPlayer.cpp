@@ -61,6 +61,18 @@ void StreamPlayer::attach(QObject* mpvObject) {
             m_reloadAttempts = 0;
         }
     });
+    // Auto-reload em EOF: streams IPTV ao vivo recebem EOF do servidor
+    // periodicamente (Cloudflare/CDN cortando conexões longas). Em vez de
+    // esperar os 12s do watchdog, religamos imediatamente — o "Carregando"
+    // no meio do canal vai sumir em ~1-2s em vez de 12+. Só EOF natural
+    // (reason 0) dispara reload — STOP/QUIT/ERROR seguem o fluxo normal.
+    connect(m_mpv, &MpvObject::endFile, this, [this](int reason) {
+        if (reason != 0) return;             // 0 = MPV_END_FILE_REASON_EOF
+        if (!m_mpv || m_current.url.isEmpty()) return;
+        if (m_reloadAttempts >= 5) return;   // teto pra não rodar em loop
+        ++m_reloadAttempts;
+        m_mpv->command(QStringList{"loadfile", m_current.url, "replace"});
+    });
 }
 
 void StreamPlayer::playChannel(const Channel& c) {

@@ -9,6 +9,23 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.13 - 2026-05-27
+Reduz drasticamente o "Carregando…" no meio do canal.
+
+### App Windows — `app/`
+- **Auto-reload imediato em EOF natural**. Stream IPTV ao vivo recebe
+  `MPV_END_FILE_REASON_EOF` (reason=0) periodicamente quando Cloudflare/CDN
+  corta conexões longas. Antes, o app esperava o watchdog de 12 s pra
+  reagir; agora `StreamPlayer` conecta no signal `endFile` do `MpvObject`
+  e dispara `loadfile … replace` imediatamente quando reason=0.
+  Resultado: gap de "Carregando" no meio do canal cai de 12+ s para ~1-2 s.
+- Limite de 5 reloads automáticos por canal (era 3 só no watchdog).
+- Outros reasons (`STOP`, `QUIT`, `ERROR`) seguem o fluxo normal — sem
+  retry em loop quando a URL retorna 404, por exemplo.
+
+> **Qualidade de imagem** intacta nesta versão (`framedrop=vo`,
+> `hwdec=auto-safe`, defaults do mpv) — não mexido a pedido do usuário.
+
 ## v1.12 - 2026-05-27
 Polimento pós-migração D3D11 da v1.11.
 
