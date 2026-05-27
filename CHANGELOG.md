@@ -9,6 +9,21 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.15 - 2026-05-27
+"DIGTV+ (Não está respondendo)" ao clicar no X pra fechar.
+
+### Diagnóstico
+- `mpv_terminate_destroy()` é bloqueante — espera demuxer, decoder e threads
+  de rede do mpv finalizarem. Com cache de 60s + conexões HTTP ativas, leva
+  vários segundos. Quando chamado no destrutor durante o fechamento, a thread
+  da UI fica congelada esperando, e o Windows mostra "Não está respondendo".
+
+### App Windows — `app/`
+- **`MpvObject::teardownMpv` move o `mpv_terminate_destroy` para uma thread
+  detached.** A UI fecha imediatamente; o cleanup do mpv termina sozinho
+  em background. Se o processo for morto pelo OS antes do mpv terminar, os
+  recursos são liberados pelo OS de qualquer forma (sockets, threads, etc.).
+
 ## v1.14 - 2026-05-27
 **Refactor da janela filha do vídeo: QWindow → Win32 nativo puro.**
 Resolve 3 bugs num único refactor.

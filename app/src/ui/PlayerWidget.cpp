@@ -9,6 +9,8 @@
 
 #include <mpv/client.h>
 
+#include <thread>
+
 #ifdef _WIN32
 #  include <windows.h>
 #endif
@@ -231,11 +233,23 @@ void MpvObject::initializeMpv(QWindow* parentWindow) {
 
 void MpvObject::teardownMpv() {
     if (m_mpv) {
+        // Desabilita callback antes de capturar o handle (a thread principal
+        // não pode mais receber wakeups depois deste ponto).
         mpv_set_wakeup_callback(m_mpv, nullptr, nullptr);
-        mpv_abort_async_command(m_mpv, 0);
-        mpv_command_string(m_mpv, "stop");
-        mpv_terminate_destroy(m_mpv);
+        mpv_handle* handle = m_mpv;
         m_mpv = nullptr;
+        // mpv_terminate_destroy é BLOQUEANTE — espera demuxer, decoder e
+        // threads de rede finalizarem. Com cache de 60s + conexões HTTP
+        // ativas, pode levar segundos. Se chamado direto na thread da UI
+        // (no destrutor durante o fechamento), o Windows mostra "Não está
+        // respondendo". Solução: rodar a finalização em uma thread detached,
+        // a UI fecha imediatamente. O processo continua vivo até a thread
+        // terminar OU é morto pelo OS (cleanup do mpv termina rápido sozinho).
+        std::thread([handle]() {
+            mpv_abort_async_command(handle, 0);
+            mpv_command_string(handle, "stop");
+            mpv_terminate_destroy(handle);
+        }).detach();
     }
 #ifdef _WIN32
     if (m_videoHwnd) {
