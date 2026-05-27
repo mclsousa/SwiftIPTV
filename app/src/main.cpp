@@ -82,8 +82,12 @@ int main(int argc, char* argv[]) {
 
     // Quando a lista de canais estiver pronta, carrega o EPG em background.
     QObject::connect(channels, &ChannelManager::listReady, epg, [epg](int){ epg->load(); });
-    // Após login, dispara o carregamento da lista.
-    QObject::connect(auth, &AuthManager::loginSucceeded, channels, [channels]{ channels->loadList(); });
+    // Login explícito (usuário digitou usuário/senha): força refresh da M3U.
+    // Garante que mudanças feitas no painel do provedor IPTV (canais novos,
+    // removidos, reordenados) aparecem imediatamente.
+    QObject::connect(auth, &AuthManager::loginSucceeded, channels, [channels]{ channels->loadList(/*forceRefresh=*/true); });
+    // Auto-login (revalidação na abertura): usa cache, é instantâneo. O cache
+    // expira em 6h e a próxima abertura busca a versão nova.
     QObject::connect(auth, &AuthManager::autoLoginResult, channels, [channels](bool ok){ if (ok) channels->loadList(); });
 
     // --- Tipos QML ---

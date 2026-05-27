@@ -9,6 +9,20 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.5 - 2026-05-27
+Lista de canais não refletia mudanças feitas no painel do provedor IPTV
+(canais removidos/adicionados/reordenados continuavam aparecendo até o
+cache de 6h expirar).
+
+### App Windows — `app/`
+- **Login explícito força refresh da M3U**: quando o usuário digita
+  usuário/senha e entra, a lista é re-baixada do servidor (ignorando o
+  cache). Garante que mudanças no painel do provedor (canais novos,
+  removidos, reordenados) aparecem na hora.
+- **Auto-login (revalidação ao abrir) continua usando cache**: mantém a
+  abertura do app rápida quando "lembrar senha" está ativo. O cache
+  expira em 6h e o próximo refresh natural pega o estado atualizado.
+
 ## v1.4 - 2026-05-27
 Streams começavam a tocar e em segundos voltavam para "Carregando…"
 (buffer underrun em qualquer micro-corte de rede).
