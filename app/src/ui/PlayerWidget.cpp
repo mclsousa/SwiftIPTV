@@ -1,4 +1,5 @@
 #include "ui/PlayerWidget.h"
+#include "core/Settings.h"
 
 #include <QtGui/QOpenGLContext>
 #include <QOpenGLFramebufferObject>   // Qt6: módulo QtOpenGL (não QtGui)
@@ -93,7 +94,11 @@ MpvObject::MpvObject(QQuickItem* parent) : QQuickFramebufferObject(parent) {
     if (!m_mpv) { emit mpvError("mpv_create falhou"); return; }
 
     // --- Perfil de baixa latência / troca rápida de canal ---
-    mpv_set_option_string(m_mpv, "hwdec", "d3d11va");      // hardware decode (fallback automático)
+    // hwdec=auto-safe: tenta hardware decode com o codec/GPU disponível e cai
+    // para software automaticamente se o stream/codec não for suportado em HW.
+    // (d3d11va forçado falha silenciosamente em algumas combinações driver+codec,
+    //  resultando em tela preta sem mensagem de erro.)
+    mpv_set_option_string(m_mpv, "hwdec", "auto-safe");
     mpv_set_option_string(m_mpv, "vo", "libmpv");
     mpv_set_option_string(m_mpv, "profile", "low-latency");
     mpv_set_option_string(m_mpv, "cache", "yes");
@@ -107,7 +112,17 @@ MpvObject::MpvObject(QQuickItem* parent) : QQuickFramebufferObject(parent) {
     mpv_set_option_string(m_mpv, "force-seekable", "no");
     mpv_set_option_string(m_mpv, "audio-buffer", "0.2");
     mpv_set_option_string(m_mpv, "video-sync", "audio");
-    mpv_set_option_string(m_mpv, "user-agent", "SwiftIPTV/1.0");
+    // User-Agent de browser real: vários servidores IPTV atrás de Cloudflare/WAF
+    // bloqueiam UAs custom como "SwiftIPTV/1.0" devolvendo 403 ou stream vazio.
+    mpv_set_option_string(m_mpv, "user-agent",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+
+    // Log do mpv em arquivo, pra diagnosticar tela preta / freeze sem precisar
+    // de gdb. Aparece em %APPDATA%\SwiftIPTV\mpv.log
+    const QString logPath = Settings::appDir() + "/mpv.log";
+    mpv_set_option_string(m_mpv, "log-file", logPath.toLocal8Bit().constData());
+    mpv_request_log_messages(m_mpv, "info");
 
     if (mpv_initialize(m_mpv) < 0) { emit mpvError("mpv_initialize falhou"); return; }
 

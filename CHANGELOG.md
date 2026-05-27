@@ -9,6 +9,24 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.2 - 2026-05-27
+Correções no player libMPV: tela preta + travamento ao trocar canal em
+algumas configurações (drivers/GPUs e servidores IPTV atrás de Cloudflare/WAF).
+
+### App Windows — `app/`
+- `hwdec` mudou de `d3d11va` (forçado) para `auto-safe`. O d3d11va forçado
+  falhava silenciosamente em algumas combinações driver+codec, resultando em
+  janela preta sem mensagem de erro. Com `auto-safe`, o mpv escolhe o melhor
+  decodificador de hardware disponível e cai para software se o stream/codec
+  não puder ser decodificado em HW.
+- User-Agent do libMPV trocado de `SwiftIPTV/1.0` para um UA de Chrome real
+  (`Mozilla/5.0 ... Chrome/120 ...`). Servidores IPTV atrás de Cloudflare/WAF
+  costumam responder 403 / stream vazio para UAs custom, mesmo quando a URL
+  retorna OK em testes HTTP simples.
+- Log de diagnóstico do libMPV agora é gravado em
+  `%APPDATA%\SwiftIPTV\mpv.log` (nível info), permitindo investigar falhas
+  de playback sem precisar de debugger.
+
 ## v1.1 - 2026-05-27
 Primeira versão hospedada em produção (dixg.com.br) e início do rebrand para DIGTV+.
 
