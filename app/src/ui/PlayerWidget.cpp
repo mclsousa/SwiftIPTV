@@ -7,11 +7,38 @@
 #include <QTimer>
 #include <QPoint>
 #include <QSize>
+#include <QByteArray>
 
 #include <mpv/client.h>
 
 #ifdef _WIN32
 #  include <windows.h>
+#endif
+
+#ifdef _WIN32
+// QWindow customizado que intercepta WM_ERASEBKGND e pinta a área cliente
+// de preto antes do mpv ter o primeiro frame. Sem isto, o Windows pinta
+// com hbrBackground=WHITE_BRUSH default → flash branco visível por ~1s
+// entre a janela aparecer e o D3D11 do mpv apresentar o primeiro frame.
+class BlackBackedWindow : public QWindow {
+public:
+    explicit BlackBackedWindow(QWindow* parent = nullptr) : QWindow(parent) {}
+protected:
+    bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override {
+        if (eventType == "windows_generic_MSG") {
+            MSG* msg = static_cast<MSG*>(message);
+            if (msg->message == WM_ERASEBKGND) {
+                HDC hdc = reinterpret_cast<HDC>(msg->wParam);
+                RECT rect;
+                GetClientRect(msg->hwnd, &rect);
+                FillRect(hdc, &rect, reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
+                *result = 1;
+                return true;
+            }
+        }
+        return QWindow::nativeEvent(eventType, message, result);
+    }
+};
 #endif
 
 // ---------------------------------------------------------------------------
@@ -71,11 +98,17 @@ void MpvObject::initializeMpv(QWindow* parentWindow) {
     m_parentWindow = parentWindow;
 
     // 1) Cria a janela filha nativa Win32 que vai hospedar o render do mpv.
-    //    Em Qt, basta um QWindow com pai = parentWindow; o Qt cria como
-    //    janela "child" no Windows automaticamente.
+    //    BlackBackedWindow pinta a área cliente de preto em WM_ERASEBKGND,
+    //    evitando o flash branco antes do mpv apresentar o primeiro frame.
+#ifdef _WIN32
+    m_videoWindow = new BlackBackedWindow(parentWindow);
+#else
     m_videoWindow = new QWindow(parentWindow);
+#endif
     m_videoWindow->setFlags(Qt::FramelessWindowHint);
-    m_videoWindow->setSurfaceType(QSurface::OpenGLSurface); // mpv vo=gpu lida com swapchain
+    // surface type Raster: leve, sem tentar inicializar OpenGL/Vulkan que não
+    // usamos (mpv cria sua própria swapchain D3D11 na HWND).
+    m_videoWindow->setSurfaceType(QSurface::RasterSurface);
     m_videoWindow->create();                                // realiza HWND
     m_videoWindow->setObjectName("MpvVideoWindow");
 

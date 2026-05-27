@@ -9,6 +9,22 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.12 - 2026-05-27
+Polimento pós-migração D3D11 da v1.11.
+
+### App Windows — `app/`
+- **Fim do flash branco** antes do vídeo aparecer. A janela filha Win32
+  herdava `hbrBackground = WHITE_BRUSH` da classe default e, entre o
+  momento em que ela é mostrada e o mpv apresentar o primeiro frame D3D11
+  (~1 segundo), o Windows pintava tudo de branco. Adicionada a classe
+  `BlackBackedWindow : QWindow` que intercepta `WM_ERASEBKGND` via
+  `nativeEvent()` e pinta a área cliente de preto. O usuário agora
+  vê preto durante o load em vez do flash branco.
+- **`surfaceType` da janela filha mudado de `OpenGLSurface` para
+  `RasterSurface`**. A v1.11 setava OpenGL por engano — irrelevante já
+  que o mpv cria sua própria swapchain D3D11 na HWND. Raster é mais
+  leve, sem inicializar contexto OpenGL que não usamos.
+
 ## v1.11 - 2026-05-27
 **Refactor grande:** player de vídeo agora roda em janela nativa Win32
 filha com renderização D3D11 direta — mesma técnica do ProgDVB. Elimina
