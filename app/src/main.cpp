@@ -53,8 +53,10 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // --- mpv usa o render API OpenGL: força o backend RHI OpenGL no Qt Quick ---
-    QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
+    // --- v1.11: mpv renderiza em janela filha nativa via D3D11 (vo=gpu),
+    //     então o backend do Qt Quick também passa a ser Direct3D11 — UI e
+    //     vídeo no mesmo pipeline nativo Windows, sem OpenGL em lugar nenhum.
+    QQuickWindow::setGraphicsApi(QSGRendererInterface::Direct3D11);
 
     QGuiApplication app(argc, argv);
     QGuiApplication::setApplicationName("SwiftIPTV");

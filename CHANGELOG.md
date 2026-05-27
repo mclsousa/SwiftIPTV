@@ -9,6 +9,39 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.11 - 2026-05-27
+**Refactor grande:** player de vídeo agora roda em janela nativa Win32
+filha com renderização D3D11 direta — mesma técnica do ProgDVB. Elimina
+o overhead de OpenGL FBO + composição Qt das versões anteriores.
+
+### App Windows — `app/`
+- **MpvObject deixa de herdar `QQuickFramebufferObject`** (OpenGL-only)
+  e passa a herdar `QQuickItem`. Em vez de pintar dentro do scene graph
+  do Qt Quick, ele cria uma **janela filha Win32** (`QWindow` com estilo
+  `WS_CHILD`) e a posiciona/redimensiona conforme o item se move no
+  layout (sidebar abrindo/fechando, fullscreen, etc.).
+- **mpv configurado com `vo=gpu` + `gpu-api=d3d11`** e a opção `wid`
+  apontando para o HWND da janela filha. Resultado: decodificação DXVA +
+  apresentação D3D11 diretamente na janela, sem passar por OpenGL, sem
+  cópias entre APIs.
+- **Qt Quick backend mudado para `Direct3D11`** (era `OpenGL`). UI e
+  vídeo agora compartilham o pipeline nativo Windows. Saímos por
+  completo do OpenGL.
+- **Nova propriedade `playing`** no MpvObject. True só depois que o mpv
+  emite `fileLoaded` (primeiro frame chegou). A QML usa isso para
+  esconder a janela nativa de vídeo durante o load inicial, deixando o
+  "Carregando…" da QML visível por baixo.
+
+### Limitações conhecidas (v1.11)
+- **Overlay sobre o vídeo desaparece**. A janela nativa de vídeo é
+  opaca por natureza Win32 — QML pintado por cima é coberto pelo HWND.
+  O nome do canal + controles (play/pause/volume/fullscreen) ainda
+  existem no código mas não aparecem sobre o vídeo. Solução futura
+  (v1.12) é mover esses elementos para a sidebar OU reintroduzir o
+  overlay via janela Qt translúcida sobreposta.
+- Atalhos de teclado (F11, ESC, setas, números) ainda funcionam por
+  ficarem no QQuickItem raiz da tela.
+
 ## v1.10 - 2026-05-27
 Reverte `profile=gpu-hq` e adiciona framedrop pra eliminar trava-e-volta
 em GPUs integradas.

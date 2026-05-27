@@ -234,6 +234,10 @@ Item {
             MpvPlayer {
                 id: mpv
                 anchors.fill: parent
+                // A janela nativa de vídeo só aparece DEPOIS que o mpv reportou
+                // fileLoaded (primeiro frame chegou). Antes, "Selecione um
+                // canal" e "Carregando..." da QML permanecem visíveis por baixo.
+                visible: mpv.playing
                 Component.onCompleted: player.attach(mpv)
             }
 

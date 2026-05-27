@@ -1,194 +1,196 @@
 #include "ui/PlayerWidget.h"
 #include "core/Settings.h"
 
-#include <QtGui/QOpenGLContext>
-#include <QOpenGLFramebufferObject>   // Qt6: módulo QtOpenGL (não QtGui)
 #include <QtQuick/QQuickWindow>
-#include <QtQuick/QQuickOpenGLUtils>
+#include <QtGui/QWindow>
 #include <QMetaObject>
+#include <QTimer>
+#include <QPoint>
+#include <QSize>
 
 #include <mpv/client.h>
-#include <mpv/render_gl.h>
 
-#include <stdexcept>
+#ifdef _WIN32
+#  include <windows.h>
+#endif
 
-namespace {
-void* get_proc_address(void* /*ctx*/, const char* name) {
-    QOpenGLContext* glctx = QOpenGLContext::currentContext();
-    if (!glctx) return nullptr;
-    return reinterpret_cast<void*>(glctx->getProcAddress(QByteArray(name)));
+// ---------------------------------------------------------------------------
+// MpvObject — embute uma janela filha Win32 dentro da janela Qt principal e
+// faz o mpv renderizar nela diretamente (vo=gpu, gpu-api=d3d11). Sem FBO
+// OpenGL, sem cópia intermediária — caminho nativo igual ao do ProgDVB.
+// ---------------------------------------------------------------------------
+
+MpvObject::MpvObject(QQuickItem* parent) : QQuickItem(parent) {
+    // O item em si não desenha nada — a janela filha que cobre essa área é
+    // que mostra o vídeo. Sinalizamos para o Qt Quick não tentar pintar.
+    setFlag(ItemHasContents, false);
+    // Sincroniza a janela filha quando o item esconde/aparece (caso de
+    // navegação entre telas, fullscreen, etc.)
+    connect(this, &QQuickItem::visibleChanged, this, &MpvObject::syncVideoWindow);
 }
 
-QVariant nodeToVariant(const mpv_node* node); // fwd
-
-void mpvSetNode(mpv_node& dst, const QVariant& v); // fwd
+MpvObject::~MpvObject() {
+    teardownMpv();
 }
 
-// ---------------------------------------------------------------------------
-// Renderer (vive na render thread do Qt Quick)
-// ---------------------------------------------------------------------------
-class MpvRenderer : public QQuickFramebufferObject::Renderer {
-public:
-    explicit MpvRenderer(MpvObject* obj) : m_obj(obj) {}
-    ~MpvRenderer() override {
-        if (m_renderCtx) mpv_render_context_free(m_renderCtx);
+// O item entrou em uma cena/janela Qt — momento de criar a janela filha
+// e iniciar o mpv.
+void MpvObject::itemChange(ItemChange change, const ItemChangeData& data) {
+    QQuickItem::itemChange(change, data);
+    if (change == ItemSceneChange) {
+        QQuickWindow* w = data.window;
+        if (w && !m_mpv) {
+            initializeMpv(w);
+        } else if (!w && m_mpv) {
+            // Saindo de cena: desliga o mpv.
+            teardownMpv();
+        }
     }
+}
 
-    void initializeGL() {
-        mpv_opengl_init_params gl_init{};
-        gl_init.get_proc_address = get_proc_address;
+void MpvObject::geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry) {
+    QQuickItem::geometryChange(newGeometry, oldGeometry);
+    syncVideoWindow();
+}
 
-        int advanced = 1;
-        mpv_render_param params[]{
-            {MPV_RENDER_PARAM_API_TYPE, const_cast<char*>(MPV_RENDER_API_TYPE_OPENGL)},
-            {MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &gl_init},
-            {MPV_RENDER_PARAM_ADVANCED_CONTROL, &advanced},
-            {MPV_RENDER_PARAM_INVALID, nullptr}
-        };
-        if (mpv_render_context_create(&m_renderCtx, m_obj->m_mpv, params) < 0)
-            throw std::runtime_error("Falha ao criar mpv_render_context");
+void MpvObject::syncVideoWindow() {
+    if (!m_videoWindow || !window()) return;
+    // Se o QQuickItem está escondido (navegação entre telas, etc.), esconde
+    // a janela filha junto pra não cobrir QML por trás.
+    if (!isVisible()) { m_videoWindow->setVisible(false); return; }
+    // Posição no espaço da janela Qt (= coordenadas do client area, que é o
+    // que o QWindow filho enxerga ao ser posicionado relativo ao pai).
+    const QPointF inWindow = mapToScene(QPointF(0, 0));
+    const QSize sz(qMax(1, int(width())), qMax(1, int(height())));
+    m_videoWindow->setPosition(inWindow.toPoint());
+    m_videoWindow->resize(sz);
+    m_videoWindow->setVisible(sz.width() > 1 && sz.height() > 1);
+}
 
-        // Quando o mpv tem um novo frame, pede ao FBO para renderizar de novo.
-        mpv_render_context_set_update_callback(m_renderCtx, MpvRenderer::onUpdate, this);
+void MpvObject::initializeMpv(QWindow* parentWindow) {
+    m_parentWindow = parentWindow;
+
+    // 1) Cria a janela filha nativa Win32 que vai hospedar o render do mpv.
+    //    Em Qt, basta um QWindow com pai = parentWindow; o Qt cria como
+    //    janela "child" no Windows automaticamente.
+    m_videoWindow = new QWindow(parentWindow);
+    m_videoWindow->setFlags(Qt::FramelessWindowHint);
+    m_videoWindow->setSurfaceType(QSurface::OpenGLSurface); // mpv vo=gpu lida com swapchain
+    m_videoWindow->create();                                // realiza HWND
+    m_videoWindow->setObjectName("MpvVideoWindow");
+
+#ifdef _WIN32
+    // O QWindow no Windows gera um HWND com WS_POPUP por padrão. Para o mpv
+    // se comportar como janela filha "ancorada" dentro do player, ajustamos
+    // o style.
+    const HWND hwnd = reinterpret_cast<HWND>(m_videoWindow->winId());
+    const HWND parentHwnd = parentWindow ? reinterpret_cast<HWND>(parentWindow->winId()) : nullptr;
+    if (hwnd) {
+        LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+        style = (style & ~WS_POPUP) | WS_CHILD | WS_CLIPSIBLINGS;
+        SetWindowLongPtr(hwnd, GWL_STYLE, style);
+        if (parentHwnd) {
+            SetParent(hwnd, parentHwnd);
+        }
     }
+#endif
 
-    QOpenGLFramebufferObject* createFramebufferObject(const QSize& size) override {
-        if (!m_renderCtx) initializeGL();
-        return QQuickFramebufferObject::Renderer::createFramebufferObject(size);
-    }
+    // 2) Posiciona a janela filha onde o QQuickItem está.
+    syncVideoWindow();
 
-    void render() override {
-        QQuickOpenGLUtils::resetOpenGLState();
-
-        QOpenGLFramebufferObject* fbo = framebufferObject();
-        mpv_opengl_fbo mpfbo{ static_cast<int>(fbo->handle()),
-                              fbo->width(), fbo->height(), 0 };
-        // QQuickFramebufferObject já entrega o FBO com Y alinhado ao espaço de
-        // tela do Qt Quick (origem no topo). Pedir flip_y aqui faria o vídeo
-        // aparecer de cabeça para baixo.
-        int flip_y = 0;
-
-        mpv_render_param params[]{
-            {MPV_RENDER_PARAM_OPENGL_FBO, &mpfbo},
-            {MPV_RENDER_PARAM_FLIP_Y, &flip_y},
-            {MPV_RENDER_PARAM_INVALID, nullptr}
-        };
-        mpv_render_context_render(m_renderCtx, params);
-
-        QQuickOpenGLUtils::resetOpenGLState();
-    }
-
-    static void onUpdate(void* ctx) {
-        auto* self = static_cast<MpvRenderer*>(ctx);
-        // doUpdate() (slot) chama QQuickFramebufferObject::update() na thread da UI.
-        QMetaObject::invokeMethod(self->m_obj, "doUpdate", Qt::QueuedConnection);
-    }
-
-private:
-    MpvObject* m_obj;
-    mpv_render_context* m_renderCtx = nullptr;
-};
-
-// ---------------------------------------------------------------------------
-// MpvObject
-// ---------------------------------------------------------------------------
-MpvObject::MpvObject(QQuickItem* parent) : QQuickFramebufferObject(parent) {
+    // 3) Cria a instância do mpv (não inicializa ainda).
     m_mpv = mpv_create();
     if (!m_mpv) { emit mpvError("mpv_create falhou"); return; }
 
-    // --- Perfil de baixa latência / troca rápida de canal ---
-    // hwdec=auto-safe: tenta hardware decode com o codec/GPU disponível e cai
-    // para software automaticamente se o stream/codec não for suportado em HW.
-    // (d3d11va forçado falha silenciosamente em algumas combinações driver+codec,
-    //  resultando em tela preta sem mensagem de erro.)
-    // auto-copy: como auto-safe, mas força o "copy-back" do frame decodificado
-    // (GPU -> RAM -> GPU) — um pouco mais lento mas dramaticamente mais compatível
-    // com HEVC/H.265 entre drivers antigos. Stream H.264 segue em zero-copy.
-    mpv_set_option_string(m_mpv, "hwdec", "auto-copy");
-    mpv_set_option_string(m_mpv, "vo", "libmpv");
+    // 4) Configura mpv ANTES de mpv_initialize.
+    // Saída de vídeo: vo=gpu com backend D3D11 — pipeline nativo Windows,
+    // o mesmo caminho que players como ProgDVB usam (decodificação DXVA +
+    // present D3D11), sem cópias por Qt/OpenGL.
+    mpv_set_option_string(m_mpv, "vo", "gpu");
+    mpv_set_option_string(m_mpv, "gpu-api", "d3d11");
+    mpv_set_option_string(m_mpv, "gpu-context", "d3d11");
 
-    // --- Buffer/cache: prioridade total em NÃO travar, mesmo que o início
-    //     leve mais alguns segundos pra começar a tocar. ---
+    // wid: HWND da janela onde o mpv vai renderizar. Tem que ser string
+    // representando o ponteiro em decimal (uintptr_t).
+#ifdef _WIN32
+    const HWND wid = reinterpret_cast<HWND>(m_videoWindow->winId());
+    const QString widStr = QString::number(reinterpret_cast<quintptr>(wid));
+    mpv_set_option_string(m_mpv, "wid", widStr.toLocal8Bit().constData());
+#endif
+
+    // Hardware decode: zero-copy quando possível. auto-safe deixa o mpv
+    // escolher o melhor backend disponível (DXVA2 / D3D11VA) e cai para
+    // software se o codec não puder ser HW-decoded.
+    mpv_set_option_string(m_mpv, "hwdec", "auto-safe");
+
+    // Buffer/cache — generoso pra absorver oscilações da CDN sem trava.
     mpv_set_option_string(m_mpv, "cache", "yes");
-    mpv_set_option_string(m_mpv, "cache-secs", "60");           // dobrado (era 30)
-    mpv_set_option_string(m_mpv, "demuxer-readahead-secs", "5"); // mais cushion (era 3)
-    mpv_set_option_string(m_mpv, "demuxer-max-bytes", "300MiB"); // dobrado (era 150)
+    mpv_set_option_string(m_mpv, "cache-secs", "60");
+    mpv_set_option_string(m_mpv, "demuxer-readahead-secs", "5");
+    mpv_set_option_string(m_mpv, "demuxer-max-bytes", "300MiB");
     mpv_set_option_string(m_mpv, "demuxer-max-back-bytes", "100MiB");
-    // CRÍTICO para IPTV ao vivo: não pausa a reprodução quando o buffer
-    // momentaneamente esgota — apenas tenta repor em paralelo enquanto
-    // continua mostrando o último frame.
     mpv_set_option_string(m_mpv, "cache-pause", "no");
     mpv_set_option_string(m_mpv, "cache-pause-initial", "no");
-    // Buffer de áudio bem maior — permite manter áudio rolando enquanto a
-    // rede se recupera, evitando o "freeze + retomada" do vídeo.
     mpv_set_option_string(m_mpv, "audio-buffer", "1");
 
-    // reconnect + retries para sobreviver a quedas curtas de conexão.
+    // Reconexão pra streams IPTV instáveis.
     mpv_set_option_string(m_mpv, "demuxer-lavf-o",
         "fflags=+nobuffer+discardcorrupt,reconnect=1,reconnect_streamed=1,"
         "reconnect_delay_max=2,reconnect_at_eof=1");
     mpv_set_option_string(m_mpv, "stream-lavf-o",
         "reconnect=1,reconnect_streamed=1,reconnect_delay_max=2");
     mpv_set_option_string(m_mpv, "network-timeout", "10");
-    mpv_set_option_string(m_mpv, "hr-seek", "yes");
     mpv_set_option_string(m_mpv, "keep-open", "no");
     mpv_set_option_string(m_mpv, "force-seekable", "no");
-    // (audio-buffer já configurado acima como 1s pro caso de stutters)
+    mpv_set_option_string(m_mpv, "hr-seek", "yes");
     mpv_set_option_string(m_mpv, "video-sync", "audio");
-    // framedrop=vo: se o pipeline de render atrasa (GPU integrada sobrecarregada,
-    // janela em foreground/background, etc.), dropa frames atrasados em vez de
-    // travar a reprodução. Sem isto, mpv loga "mpv_render_context_render() not
-    // being called or stuck" e o vídeo congela até o pipeline recuperar.
     mpv_set_option_string(m_mpv, "framedrop", "vo");
-    // NÃO usar profile=gpu-hq — em testes na Intel HD Graphics 620 (laptops
-    // de 2017+ comuns), spline36+sigmoid+deband saturam a GPU e provocam o
-    // congelamento descrito acima. Defaults do mpv (bilinear) já são
-    // perfeitamente assistíveis pra IPTV.
-    // User-Agent de browser real: vários servidores IPTV atrás de Cloudflare/WAF
-    // bloqueiam UAs custom como "SwiftIPTV/1.0" devolvendo 403 ou stream vazio.
+
+    // UA de browser real — Cloudflare/WAF bloqueia UAs custom.
     mpv_set_option_string(m_mpv, "user-agent",
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
-    // Log do mpv em arquivo, pra diagnosticar tela preta / freeze sem precisar
-    // de gdb. Aparece em %APPDATA%\SwiftIPTV\mpv.log
+    // Log do mpv pra diagnóstico.
     const QString logPath = Settings::appDir() + "/mpv.log";
     mpv_set_option_string(m_mpv, "log-file", logPath.toLocal8Bit().constData());
     mpv_request_log_messages(m_mpv, "info");
 
-    if (mpv_initialize(m_mpv) < 0) { emit mpvError("mpv_initialize falhou"); return; }
+    // 5) Inicializa de fato.
+    if (mpv_initialize(m_mpv) < 0) {
+        emit mpvError("mpv_initialize falhou");
+        teardownMpv();
+        return;
+    }
 
-    // Observa propriedades para atualizar a UI
-    mpv_observe_property(m_mpv, 0, "pause",    MPV_FORMAT_FLAG);
-    mpv_observe_property(m_mpv, 0, "volume",   MPV_FORMAT_DOUBLE);
-    mpv_observe_property(m_mpv, 0, "duration", MPV_FORMAT_DOUBLE);
-    mpv_observe_property(m_mpv, 0, "time-pos", MPV_FORMAT_DOUBLE);
-    mpv_observe_property(m_mpv, 0, "core-idle",MPV_FORMAT_FLAG);
+    // 6) Propriedades observadas pra alimentar a UI.
+    mpv_observe_property(m_mpv, 0, "pause",            MPV_FORMAT_FLAG);
+    mpv_observe_property(m_mpv, 0, "volume",           MPV_FORMAT_DOUBLE);
+    mpv_observe_property(m_mpv, 0, "duration",         MPV_FORMAT_DOUBLE);
+    mpv_observe_property(m_mpv, 0, "time-pos",         MPV_FORMAT_DOUBLE);
+    mpv_observe_property(m_mpv, 0, "core-idle",        MPV_FORMAT_FLAG);
     mpv_observe_property(m_mpv, 0, "paused-for-cache", MPV_FORMAT_FLAG);
 
+    // 7) Callback para acordar a fila de eventos.
     mpv_set_wakeup_callback(m_mpv, &MpvObject::onWakeup, this);
 }
 
-MpvObject::~MpvObject() {
+void MpvObject::teardownMpv() {
     if (m_mpv) {
-        // Antes de tear-down: avisa pra parar de buscar dados de rede e aborta
-        // qualquer comando async pendente. Sem isto, mpv_terminate_destroy ficava
-        // bloqueado segundos esperando timeouts de socket fechar (o "trava no
-        // botão Sair" relatado).
+        // Avisa o mpv pra parar de buscar dados de rede antes do destroy —
+        // evita o destrutor bloquear esperando timeouts de socket.
         mpv_set_wakeup_callback(m_mpv, nullptr, nullptr);
         mpv_abort_async_command(m_mpv, 0);
         mpv_command_string(m_mpv, "stop");
         mpv_terminate_destroy(m_mpv);
         m_mpv = nullptr;
     }
+    if (m_videoWindow) {
+        m_videoWindow->setVisible(false);
+        m_videoWindow->deleteLater();
+        m_videoWindow = nullptr;
+    }
 }
-
-QQuickFramebufferObject::Renderer* MpvObject::createRenderer() const {
-    if (window()) window()->setPersistentSceneGraph(true);
-    return new MpvRenderer(const_cast<MpvObject*>(this));
-}
-
-void MpvObject::doUpdate() { update(); }
 
 void MpvObject::onWakeup(void* ctx) {
     auto* self = static_cast<MpvObject*>(ctx);
@@ -207,17 +209,27 @@ void MpvObject::onMpvEvents() {
 void MpvObject::handleEvent(void* event) {
     auto* ev = static_cast<mpv_event*>(event);
     switch (ev->event_id) {
-        case MPV_EVENT_START_FILE: emit fileStarted(); break;
-        case MPV_EVENT_FILE_LOADED: emit fileLoaded(); break;
+        case MPV_EVENT_START_FILE:
+            // Novo loadfile chegou: stream ainda não tocou. Esconde a janela
+            // de vídeo enquanto o "Carregando..." da QML aparece.
+            if (m_playing) { m_playing = false; emit playingChanged(); }
+            emit fileStarted();
+            break;
+        case MPV_EVENT_FILE_LOADED:
+            // Primeiro frame disponível: agora pode exibir a janela de vídeo.
+            if (!m_playing) { m_playing = true; emit playingChanged(); }
+            emit fileLoaded();
+            break;
         case MPV_EVENT_END_FILE: {
             auto* ef = static_cast<mpv_event_end_file*>(ev->data);
+            if (m_playing) { m_playing = false; emit playingChanged(); }
             emit endFile(ef ? ef->reason : 0);
             break;
         }
         case MPV_EVENT_PROPERTY_CHANGE: {
             auto* p = static_cast<mpv_event_property*>(ev->data);
             const QString name = QString::fromUtf8(p->name);
-            if (p->format == MPV_FORMAT_FLAG) {
+            if (p->format == MPV_FORMAT_FLAG && p->data) {
                 const bool val = *static_cast<int*>(p->data) != 0;
                 if (name == "pause") { m_paused = val; emit pausedChanged(); }
                 else if (name == "core-idle" || name == "paused-for-cache") {
@@ -225,7 +237,7 @@ void MpvObject::handleEvent(void* event) {
                 }
             } else if (p->format == MPV_FORMAT_DOUBLE && p->data) {
                 const double val = *static_cast<double*>(p->data);
-                if (name == "volume")   { m_volume = int(val); emit volumeChanged(); }
+                if (name == "volume")        { m_volume = int(val); emit volumeChanged(); }
                 else if (name == "duration") { m_duration = val; emit durationChanged(); }
                 else if (name == "time-pos") { m_position = val; emit positionChanged(); }
             }
@@ -237,24 +249,26 @@ void MpvObject::handleEvent(void* event) {
 
 // --- Comandos ---
 namespace {
-void buildNodeList(mpv_node& node, const QStringList& list, QList<QByteArray>& storage) {
-    node.format = MPV_FORMAT_NODE_ARRAY;
-    auto* arr = new mpv_node_list;
-    arr->num = list.size();
-    arr->values = new mpv_node[list.size()];
-    arr->keys = nullptr;
+struct NodeList {
+    mpv_node node{};
+    QList<QByteArray> storage;
+    mpv_node_list inner{};
+    QList<mpv_node> values;
+};
+
+void buildNodeList(NodeList& out, const QStringList& list) {
+    out.node.format = MPV_FORMAT_NODE_ARRAY;
+    out.inner.num = list.size();
+    out.inner.keys = nullptr;
+    out.values.resize(list.size());
+    out.storage.reserve(list.size());
     for (int i = 0; i < list.size(); ++i) {
-        storage.append(list[i].toUtf8());
-        arr->values[i].format = MPV_FORMAT_STRING;
-        arr->values[i].u.string = storage.last().data();
+        out.storage.append(list[i].toUtf8());
+        out.values[i].format = MPV_FORMAT_STRING;
+        out.values[i].u.string = out.storage[i].data();
     }
-    node.u.list = arr;
-}
-void freeNodeList(mpv_node& node) {
-    if (node.format == MPV_FORMAT_NODE_ARRAY && node.u.list) {
-        delete[] node.u.list->values;
-        delete node.u.list;
-    }
+    out.inner.values = out.values.data();
+    out.node.u.list = &out.inner;
 }
 }
 
@@ -262,12 +276,9 @@ void MpvObject::command(const QVariant& args) {
     if (!m_mpv) return;
     const QStringList list = args.toStringList();
     if (list.isEmpty()) return;
-
-    mpv_node node{};
-    QList<QByteArray> storage;
-    buildNodeList(node, list, storage);
-    mpv_command_node_async(m_mpv, 0, &node);
-    freeNodeList(node);
+    NodeList nl;
+    buildNodeList(nl, list);
+    mpv_command_node_async(m_mpv, 0, &nl.node);
 }
 
 void MpvObject::setOption(const QString& name, const QVariant& value) {
