@@ -18,6 +18,9 @@ StreamPlayer::StreamPlayer(ChannelManager* channels, PrefetchEngine* prefetch, Q
         // Reload no canal atual: força o demuxer a abrir conexão nova.
         // Limita o número de retries pra não rodar em loop em canal morto.
         if (m_reloadAttempts >= 3) {
+            // Esgotou: declara estado de erro. QML mostra "Canal indisponível"
+            // em vez de "Carregando..." infinito.
+            if (!m_hasError) { m_hasError = true; emit hasErrorChanged(); }
             emit slowStart();
             return;
         }
@@ -66,11 +69,20 @@ void StreamPlayer::attach(QObject* mpvObject) {
     // periodicamente (Cloudflare/CDN cortando conexões longas). Em vez de
     // esperar os 12s do watchdog, religamos imediatamente — o "Carregando"
     // no meio do canal vai sumir em ~1-2s em vez de 12+. Só EOF natural
-    // (reason 0) dispara reload — STOP/QUIT/ERROR seguem o fluxo normal.
+    // (reason 0) dispara reload. ERROR (reason 4, ex.: HTTP 406/404) marca
+    // estado de erro pra UI mostrar "Canal indisponível".
     connect(m_mpv, &MpvObject::endFile, this, [this](int reason) {
+        if (reason == 4) {
+            // Falha explícita do servidor (HTTP error). Não adianta retry
+            // imediato — se ele esgotar via watchdog, vai virar hasError lá.
+            return;
+        }
         if (reason != 0) return;             // 0 = MPV_END_FILE_REASON_EOF
         if (!m_mpv || m_current.url.isEmpty()) return;
-        if (m_reloadAttempts >= 5) return;   // teto pra não rodar em loop
+        if (m_reloadAttempts >= 5) {
+            if (!m_hasError) { m_hasError = true; emit hasErrorChanged(); }
+            return;
+        }
         ++m_reloadAttempts;
         m_mpv->command(QStringList{"loadfile", m_current.url, "replace"});
     });
@@ -82,6 +94,8 @@ void StreamPlayer::playChannel(const Channel& c) {
     m_switchClock.restart();
     m_reloadAttempts = 0;
     m_stallWatchdog->stop();
+    // Novo canal: limpa estado de erro anterior.
+    if (m_hasError) { m_hasError = false; emit hasErrorChanged(); }
 
     // 5. Timeout de 800ms para o I-frame (sinaliza UI; mpv segue tentando).
     m_iframeTimer->start(800);

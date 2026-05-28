@@ -9,6 +9,29 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.17 - 2026-05-27
+"Carregando…" eterno em URLs que retornam erro HTTP.
+
+### Diagnóstico (mpv.log do usuário)
+- O usuário tentou abrir um VOD (`.../movie/.../11067.mp4`) e o servidor
+  IPTV respondeu **HTTP 406 Not Acceptable** (provavelmente limite de
+  sessão simultânea — havia um canal ao vivo ainda drenando o cache).
+- mpv tentava fallback via yt-dlp (3 s de overhead), depois falhava com
+  `reason=4` (ERROR). Nosso watchdog tentava reload da mesma URL → mesmo
+  406 → após N retries dava up SEM avisar a UI, deixando o "Carregando…"
+  pra sempre.
+
+### App Windows — `app/`
+- **`mpv ytdl=no`**: desabilita o fallback yt-dlp. Pra URLs IPTV o yt-dlp
+  só atrasa o erro em ~3 s e enche o log. Falhas viram explícitas na hora.
+- **`StreamPlayer.hasError` Q_PROPERTY**: nova flag setada quando:
+  1) `MPV_END_FILE_REASON_ERROR` (reason=4) recebido; OU
+  2) watchdog esgotou retries em EOF/buffer underrun.
+  É resetada automaticamente quando o usuário clica num canal novo.
+- **QML mostra "⚠ Canal indisponível"** em vez de "Carregando…" quando
+  `player.hasError === true`. Com sub-texto "O servidor recusou a
+  conexão. Tente outro canal."
+
 ## v1.16 - 2026-05-27
 Auto-hide da sidebar/botões **5s** (era 1 min).
 

@@ -288,8 +288,22 @@ Item {
             }
             Text {
                 anchors.centerIn: parent
-                visible: mpv.buffering && player.currentId && player.currentId !== ""
+                visible: mpv.buffering && player.currentId && player.currentId !== "" && !player.hasError
                 text: "Carregando..."; color: "white"; font.pixelSize: 16
+            }
+            // Estado de erro: stream esgotou os retries (HTTP 406/404/etc).
+            // Mostra mensagem clara em vez de "Carregando..." infinito.
+            Column {
+                anchors.centerIn: parent
+                visible: player.hasError
+                spacing: 8
+                Text { anchors.horizontalCenter: parent.horizontalCenter
+                    text: "⚠"; color: "#ffb86b"; font.pixelSize: 36 }
+                Text { anchors.horizontalCenter: parent.horizontalCenter
+                    text: "Canal indisponível"; color: "white"; font.pixelSize: 18; font.bold: true }
+                Text { anchors.horizontalCenter: parent.horizontalCenter
+                    text: "O servidor recusou a conexão. Tente outro canal."
+                    color: "#a0a8b8"; font.pixelSize: 13 }
             }
 
             // Captura movimento do mouse para reexibir o overlay

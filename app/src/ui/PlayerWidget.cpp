@@ -210,6 +210,12 @@ void MpvObject::initializeMpv(QWindow* parentWindow) {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
+    // Desabilita yt-dlp fallback: quando uma URL HTTP falha (ex.: 406, 404),
+    // mpv por padrão chama yt-dlp pra ver se é youtube/twitch/etc. Pra IPTV
+    // isso só atrasa o erro em ~3s e enche o log. Desligado, o erro é reportado
+    // imediatamente.
+    mpv_set_option_string(m_mpv, "ytdl", "no");
+
     // Log
     const QString logPath = Settings::appDir() + "/mpv.log";
     mpv_set_option_string(m_mpv, "log-file", logPath.toLocal8Bit().constData());
