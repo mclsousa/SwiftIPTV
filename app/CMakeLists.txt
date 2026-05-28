@@ -92,6 +92,9 @@ qt_add_qml_module(SwiftIPTV
         qml/DiagnosticView.qml
     RESOURCES
         resources/icons/logo.svg
+        resources/logos/logo-tvdig.png
+        resources/logos/logo-tvdig-square.png
+        resources/patterns/hexagons.svg
 )
 
 # ----------------------------------------------------------------------------

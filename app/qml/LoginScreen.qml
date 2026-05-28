@@ -6,12 +6,12 @@ import SwiftIPTV
 Item {
     anchors.fill: parent
 
+    // Fundo: o pattern hexagonal global (Main.qml) já está atrás; aqui só
+    // cobrimos com a cor base. Sem gradiente — o modelo TV DIG+ é preto puro.
     Rectangle {
         anchors.fill: parent
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: "#141b30" }
-            GradientStop { position: 1.0; color: "#0b0f1a" }
-        }
+        color: Theme.bg
+        opacity: 0.92   // deixa o hexágono "respirar" sutilmente
     }
 
     Connections {
@@ -21,16 +21,25 @@ Item {
 
     ColumnLayout {
         anchors.centerIn: parent
-        width: 360
-        spacing: 18
+        width: 380
+        spacing: 22
 
-        Rectangle {
+        // Logo TV DIG+ centralizada (arquivo fornecido pelo usuário).
+        Image {
             Layout.alignment: Qt.AlignHCenter
-            width: 64; height: 64; radius: 18; color: Theme.brand
-            Text { anchors.centerIn: parent; text: "⚡"; font.pixelSize: 30; color: "white" }
+            source: "qrc:/qt/qml/SwiftIPTV/resources/logos/logo-tvdig.png"
+            sourceSize.width: 260
+            fillMode: Image.PreserveAspectFit
+            smooth: true
         }
-        Text { Layout.alignment: Qt.AlignHCenter; text: "DIGTV+"; color: Theme.text; font.pixelSize: 26; font.bold: true }
-        Text { Layout.alignment: Qt.AlignHCenter; text: "Entre com sua conta"; color: Theme.subtext; font.pixelSize: 14 }
+
+        Text {
+            Layout.alignment: Qt.AlignHCenter
+            text: "Entre com sua conta"
+            color: Theme.subtext
+            font.pixelSize: 14
+            Layout.topMargin: -10
+        }
 
         TextField {
             id: userField
@@ -39,8 +48,14 @@ Item {
             text: login.savedUsername
             color: Theme.text
             placeholderTextColor: Theme.subtext
-            background: Rectangle { radius: 10; color: Theme.panel2; border.color: Theme.border }
-            leftPadding: 14; topPadding: 12; bottomPadding: 12
+            font.pixelSize: 14
+            background: Rectangle {
+                radius: 12
+                color: Theme.panel
+                border.color: userField.activeFocus ? Theme.brand : Theme.border
+                border.width: userField.activeFocus ? 1 : 1
+            }
+            leftPadding: 16; topPadding: 14; bottomPadding: 14
         }
         TextField {
             id: passField
@@ -50,8 +65,14 @@ Item {
             text: login.savedPassword
             color: Theme.text
             placeholderTextColor: Theme.subtext
-            background: Rectangle { radius: 10; color: Theme.panel2; border.color: Theme.border }
-            leftPadding: 14; topPadding: 12; bottomPadding: 12
+            font.pixelSize: 14
+            background: Rectangle {
+                radius: 12
+                color: Theme.panel
+                border.color: passField.activeFocus ? Theme.brand : Theme.border
+                border.width: 1
+            }
+            leftPadding: 16; topPadding: 14; bottomPadding: 14
             onAccepted: loginBtn.clicked()
         }
 
@@ -63,13 +84,30 @@ Item {
                 text: "Lembrar minha senha"
                 contentItem: Text {
                     text: remember.text; color: Theme.subtext; font.pixelSize: 13
-                    leftPadding: remember.indicator.width + 6; verticalAlignment: Text.AlignVCenter
+                    leftPadding: remember.indicator.width + 8; verticalAlignment: Text.AlignVCenter
                 }
                 indicator: Rectangle {
                     width: 18; height: 18; radius: 4; x: 0; y: parent.height/2 - 9
-                    color: remember.checked ? Theme.brand : Theme.panel2
-                    border.color: Theme.border
-                    Text { anchors.centerIn: parent; text: "✓"; color: "white"; visible: remember.checked; font.pixelSize: 12 }
+                    color: remember.checked ? Theme.brand : Theme.panel
+                    border.color: remember.checked ? Theme.brand : Theme.border
+                    // V de check em SVG path (sem emoji)
+                    Canvas {
+                        anchors.fill: parent
+                        visible: remember.checked
+                        onPaint: {
+                            var ctx = getContext("2d")
+                            ctx.reset()
+                            ctx.strokeStyle = "#0a0a0a"
+                            ctx.lineWidth = 2.4
+                            ctx.lineCap = "round"
+                            ctx.lineJoin = "round"
+                            ctx.beginPath()
+                            ctx.moveTo(width*0.22, height*0.52)
+                            ctx.lineTo(width*0.44, height*0.72)
+                            ctx.lineTo(width*0.80, height*0.32)
+                            ctx.stroke()
+                        }
+                    }
                 }
             }
             Item { Layout.fillWidth: true }
@@ -81,9 +119,18 @@ Item {
             enabled: !auth.busy
             text: auth.busy ? "Entrando..." : "Entrar"
             onClicked: { errorLabel.text = ""; login.submit(userField.text, passField.text, remember.checked) }
-            contentItem: Text { text: loginBtn.text; color: "white"; font.pixelSize: 15; font.bold: true; horizontalAlignment: Text.AlignHCenter }
-            background: Rectangle { radius: 10; color: loginBtn.down ? Theme.brand2 : Theme.brand; opacity: loginBtn.enabled ? 1 : 0.6 }
-            topPadding: 13; bottomPadding: 13
+            contentItem: Text {
+                text: loginBtn.text
+                color: Theme.buttonText
+                font.pixelSize: 15; font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+            }
+            background: Rectangle {
+                radius: 12
+                color: loginBtn.down ? Theme.brand2 : Theme.brand
+                opacity: loginBtn.enabled ? 1 : 0.55
+            }
+            topPadding: 14; bottomPadding: 14
         }
 
         Text {
@@ -99,7 +146,9 @@ Item {
         Text {
             Layout.alignment: Qt.AlignHCenter
             text: "Testar minha conexão"
-            color: Theme.brand; font.pixelSize: 13; font.underline: true
+            color: Theme.brand
+            font.pixelSize: 13
+            font.underline: true
             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: login.openDiagnostics() }
         }
     }

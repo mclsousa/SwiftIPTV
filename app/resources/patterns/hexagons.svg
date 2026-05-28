@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 260" width="300" height="260">
+  <defs>
+    <!-- Padrão de hexágonos sobrepostos: tile 300x260, replicado por QML
+         via fillMode=Tile. Cada hexágono tem stroke amarelo muito sutil
+         pra ficar quase imperceptível em cima do fundo preto. -->
+    <symbol id="hex" overflow="visible">
+      <polygon points="0,-40 35,-20 35,20 0,40 -35,20 -35,-20"
+               fill="none" stroke="#FFC107" stroke-width="0.7" stroke-opacity="0.04"/>
+    </symbol>
+  </defs>
+  <g>
+    <!-- linha 1 -->
+    <use href="#hex" x="0"   y="0"/>
+    <use href="#hex" x="70"  y="40"/>
+    <use href="#hex" x="140" y="0"/>
+    <use href="#hex" x="210" y="40"/>
+    <use href="#hex" x="280" y="0"/>
+    <!-- linha 2 -->
+    <use href="#hex" x="0"   y="120"/>
+    <use href="#hex" x="70"  y="160"/>
+    <use href="#hex" x="140" y="120"/>
+    <use href="#hex" x="210" y="160"/>
+    <use href="#hex" x="280" y="120"/>
+    <!-- linha 3 -->
+    <use href="#hex" x="0"   y="240"/>
+    <use href="#hex" x="140" y="240"/>
+    <use href="#hex" x="280" y="240"/>
+  </g>
+</svg>

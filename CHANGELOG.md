@@ -9,6 +9,33 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.18 - 2026-05-28
+**Início do redesign visual TV DIG+** — Fase 1: tema + login.
+
+### App Windows — `app/`
+- **Nova paleta de cores** (`Theme.qml`): preto puro (`#0a0a0a`) com
+  amarelo dourado (`#FFC107`) como cor de marca, substituindo o
+  azul/roxo `#6366f1` anterior. Cinzas neutros (`#1a1a1a`, `#252525`)
+  para cards e bordas. Adicionados `brand2` (hover), `brandSoft`,
+  `buttonText` (preto pra contraste em botões amarelos), `textDim`.
+- **Logo TV DIG+** (`resources/logos/logo-tvdig.png` e
+  `logo-tvdig-square.png`) fornecida pelo usuário, agora embutida via
+  resource Qt.
+- **Pattern hexagonal sutil** no fundo de todas as telas
+  (`resources/patterns/hexagons.svg`, tile-able, opacidade ~4% via
+  stroke amarelo). Carregado uma vez no `Main.qml` com `fillMode=Tile`.
+- **`LoginScreen.qml` redesenhada**: logo TV DIG+ centralizada,
+  campos com cantos arredondados de 12px, foco amarelo nas bordas,
+  checkbox com check via Canvas (sem emoji), botão Entrar amarelo
+  com texto preto. Layout enxuto, 380px de largura.
+
+### Próximas fases do redesign (planejadas)
+- v1.19: HomeScreen — hub central com cards (TV ao Vivo, Filmes, Séries, Configurações…)
+- v1.20: TV ao Vivo refeita em 3 colunas (categorias / canais / player+EPG)
+- v1.21: SettingsScreen com grid de opções (move Diagnóstico pra cá)
+- v1.22: Tela de Filmes (parse VOD do M3U + grid de pôsteres)
+- v1.23: Tela de Séries (parse séries + grid + episódios)
+
 ## v1.17 - 2026-05-27
 "Carregando…" eterno em URLs que retornam erro HTTP.
 

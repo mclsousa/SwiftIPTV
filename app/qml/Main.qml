@@ -17,6 +17,20 @@ ApplicationWindow {
 
     onClosing: app.saveWindow(win.x, win.y, win.width, win.height)
 
+    // --- Pattern hexagonal sutil no fundo (TV DIG+) ---
+    // Image tile-able em SVG, opacidade muito baixa via stroke do próprio
+    // arquivo. Não muda com a tela ativa.
+    Image {
+        anchors.fill: parent
+        source: "qrc:/qt/qml/SwiftIPTV/resources/patterns/hexagons.svg"
+        fillMode: Image.Tile
+        smooth: false
+        cache: true
+        sourceSize.width: 300
+        sourceSize.height: 260
+        z: -10
+    }
+
     Loader {
         id: pageLoader
         anchors.fill: parent
