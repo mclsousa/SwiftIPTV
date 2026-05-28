@@ -88,10 +88,19 @@ qt_add_qml_module(SwiftIPTV
         qml/Main.qml
         qml/LoginScreen.qml
         qml/DnsSetup.qml
+        qml/HomeScreen.qml
         qml/MainPlayer.qml
         qml/DiagnosticView.qml
     RESOURCES
         resources/icons/logo.svg
+        resources/icons/mi/tv.svg
+        resources/icons/mi/movie.svg
+        resources/icons/mi/series.svg
+        resources/icons/mi/settings.svg
+        resources/icons/mi/refresh.svg
+        resources/icons/mi/logout.svg
+        resources/icons/mi/account.svg
+        resources/icons/mi/servers.svg
         resources/logos/logo-tvdig.png
         resources/logos/logo-tvdig-square.png
         resources/patterns/hexagons.svg

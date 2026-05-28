@@ -9,6 +9,33 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.19 - 2026-05-28
+**Redesign Fase 2: HomeScreen** — hub central após o login.
+
+### App Windows — `app/`
+- **Logo do Login reduzida**: 260 → 180 px de largura (a pedido).
+- **Nova `HomeScreen.qml`**: tela inicial após o login com layout do
+  modelo TV DIG+:
+  - Logo TV DIG+ no topo (140 px)
+  - Card grande "TV ao Vivo" à esquerda
+  - 2 colunas centrais com 4 cards: Filmes, Séries, Conta, Servidores
+  - Coluna direita com 3 botões-pílula: Configurações, Recarregar, Sair
+  - Vencimento da conta no rodapé (vem do `auth.expiresAt`)
+- **Ícones SVG** criados a partir do Material Icons (sem emoji, conforme
+  pedido): `tv`, `movie`, `series`, `settings`, `refresh`, `logout`,
+  `account`, `servers`. Cor amarela `#FFC107` embutida.
+- **Navegação atualizada**: após o login (e após o setup de DNS) o app
+  vai para `home`, não mais direto para `player`.
+- **Botão "Sair" do MainPlayer agora é "Voltar"**: volta pra Home em vez
+  de fazer logout. O logout só fica disponível na HomeScreen (mais
+  intuitivo — Home é onde se "sai do app").
+
+### Próximas fases
+- v1.20: TV ao Vivo refeita (3 colunas + EPG + botões Playback/Favoritos/Procurar)
+- v1.21: SettingsScreen com Trocar DNS + Diagnóstico de Rede embutidos
+- v1.22: Tela de Filmes (VOD do M3U)
+- v1.23: Tela de Séries
+
 ## v1.18 - 2026-05-28
 **Início do redesign visual TV DIG+** — Fase 1: tema + login.
 

@@ -28,7 +28,7 @@ Item {
         Image {
             Layout.alignment: Qt.AlignHCenter
             source: "qrc:/qt/qml/SwiftIPTV/resources/logos/logo-tvdig.png"
-            sourceSize.width: 260
+            sourceSize.width: 180
             fillMode: Image.PreserveAspectFit
             smooth: true
         }

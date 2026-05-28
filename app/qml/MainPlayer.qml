@@ -261,15 +261,14 @@ Item {
                     leftPadding: 12; rightPadding: 12; topPadding: 7; bottomPadding: 7
                 }
                 Button {
-                    text: "Sair"
+                    text: "Voltar"
                     onClicked: {
-                        // Pede pro mpv abortar streams antes da QML destruir
-                        // a MpvPlayer — reduz drasticamente a trava de 1-2s.
+                        // Pede pro mpv parar streams antes da QML destruir
+                        // a MpvPlayer (evita travamento de 1-2s no teardown).
                         mpv.command(["stop"])
-                        auth.logout()
-                        app.navigate("login")
+                        app.navigate("home")
                     }
-                    contentItem: Text { text: parent.text; color: Theme.bad; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter }
+                    contentItem: Text { text: parent.text; color: Theme.text; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter }
                     background: Rectangle { radius: 8; color: "#1f2940cc"; border.color: Theme.border }
                     leftPadding: 12; rightPadding: 12; topPadding: 7; bottomPadding: 7
                 }

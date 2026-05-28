@@ -20,7 +20,7 @@ void DnsSetupController::applyAndWatch(const QString& key, bool dontShowAgain) {
 
     if (key == "keep") {
         emit applied(true, tr("DNS mantido."));
-        m_app->navigate("player");
+        m_app->navigate("home");
         return;
     }
 
@@ -32,11 +32,11 @@ void DnsSetupController::applyAndWatch(const QString& key, bool dontShowAgain) {
 
     const bool ok = m_dns->applyDns(primary, secondary, key);
     emit applied(ok, ok ? tr("DNS otimizado aplicado!") : tr("Não foi possível aplicar o DNS."));
-    m_app->navigate("player"); // segue para o player de qualquer forma
+    m_app->navigate("home"); // segue para o hub mesmo se o DNS falhou
 }
 
 void DnsSetupController::skip(bool dontShowAgain) {
     Settings::instance().set("dns_pc/show_dns_setup", !dontShowAgain);
     Settings::instance().sync();
-    m_app->navigate("player");
+    m_app->navigate("home");
 }
