@@ -76,6 +76,11 @@ QVector<Channel> M3UParser::parse(const QByteArray& data) {
             continue; // outras diretivas (#EXTM3U, #EXTGRP, etc.)
         } else if (haveExtinf) {
             cur.url = svline.toString().trimmed();
+            // Xtream Codes: /movie/ e /series/ no caminho separam VOD/séries dos
+            // canais ao vivo (que não têm prefixo de tipo na URL).
+            if (cur.url.contains(QStringLiteral("/movie/")))       cur.type = QStringLiteral("movie");
+            else if (cur.url.contains(QStringLiteral("/series/"))) cur.type = QStringLiteral("series");
+            else                                                   cur.type = QStringLiteral("live");
             cur.number = ++counter;
             if (cur.name.isEmpty()) cur.name = QStringLiteral("Canal %1").arg(counter);
             // ID de linha SEMPRE único: várias variantes (SD/HD/FHD/4K) do mesmo canal
