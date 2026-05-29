@@ -16,6 +16,7 @@ struct Channel {
     QString logo;   // tvg-logo (URL)
     QString group;  // group-title
     QString url;    // URL do stream
+    QString type;   // "live" | "movie" | "series" — classificado pela URL do stream.
     int     number = 0;
 };
 Q_DECLARE_METATYPE(Channel)

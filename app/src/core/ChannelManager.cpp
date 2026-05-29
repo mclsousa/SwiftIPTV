@@ -17,6 +17,10 @@ ChannelManager::ChannelManager(AuthManager* auth, NetworkThread* logoCache, QObj
     m_model     = new ChannelListModel(this);
     m_favModel  = new ChannelListModel(this);
     m_histModel = new ChannelListModel(this);
+    m_catModel  = new CategoryListModel(this);
+    // A tela TV ao Vivo usa o modelo principal e mostra só canais ao vivo.
+    // Favoritos/Histórico (m_favModel/m_histModel) ficam sem typeFilter.
+    m_model->setTypeFilter(QStringLiteral("live"));
     m_model->setLogoCache(logoCache);
     m_favModel->setLogoCache(logoCache);
     m_histModel->setLogoCache(logoCache);
@@ -35,6 +39,7 @@ ChannelManager::ChannelManager(AuthManager* auth, NetworkThread* logoCache, QObj
 QObject* ChannelManager::model() const { return m_model; }
 QObject* ChannelManager::favoritesModel() const { return m_favModel; }
 QObject* ChannelManager::historyModel() const { return m_histModel; }
+QObject* ChannelManager::liveCategoriesModel() const { return m_catModel; }
 
 void ChannelManager::setLoading(bool b) { if (m_loading != b) { m_loading = b; emit loadingChanged(); } }
 void ChannelManager::setStatus(const QString& s) { m_status = s; emit statusChanged(); }
@@ -171,6 +176,7 @@ void ChannelManager::onParsed(QVector<Channel> channels) {
     m_channels = std::move(channels);
     m_model->setSource(m_channels);
     rebuildAuxModels();
+    rebuildLiveCategories();
     setLoading(false);
     setStatus(tr("%1 canais carregados.").arg(m_channels.size()));
     emit listReady(m_channels.size());
@@ -188,6 +194,20 @@ void ChannelManager::rebuildAuxModels() {
     };
     m_favModel->setSource(pick(m_favorites));
     m_histModel->setSource(pick(m_history));
+}
+
+void ChannelManager::rebuildLiveCategories() {
+    // Categorias distintas entre canais ao vivo, preservando a ordem de
+    // aparição no M3U, com a contagem de canais de cada uma.
+    QVector<QPair<QString,int>> cats;
+    QHash<QString,int> idx;
+    for (const auto& c : m_channels) {
+        if (c.type != QStringLiteral("live")) continue;
+        auto it = idx.constFind(c.group);
+        if (it == idx.constEnd()) { idx.insert(c.group, int(cats.size())); cats.push_back({c.group, 1}); }
+        else ++cats[it.value()].second;
+    }
+    m_catModel->setCategories(cats);
 }
 
 Channel ChannelManager::channelById(const QString& id) const {
