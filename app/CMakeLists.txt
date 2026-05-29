@@ -90,6 +90,7 @@ qt_add_qml_module(SwiftIPTV
         qml/DnsSetup.qml
         qml/HomeScreen.qml
         qml/MainPlayer.qml
+        qml/TopNav.qml
         qml/DiagnosticView.qml
     RESOURCES
         resources/icons/logo.svg
