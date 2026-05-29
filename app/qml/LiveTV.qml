@@ -95,9 +95,9 @@ Item {
             visible: !root.isFullscreen
             active: "live"
             onTabClicked: function(key) {
-                if (key === "home") { mpv.command(["stop"]); app.navigate("home") }
-                else if (key === "movies") Window.window.notify("Filmes (em construção)")
-                else if (key === "series") Window.window.notify("Séries (em construção)")
+                if (key === "home")        { mpv.command(["stop"]); app.navigate("home") }
+                else if (key === "movies") { mpv.command(["stop"]); app.navigate("movies") }
+                else if (key === "series") { mpv.command(["stop"]); app.navigate("series") }
             }
             onSearchTextChanged: channels.model.filter = topNav.searchText
         }

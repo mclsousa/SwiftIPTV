@@ -9,6 +9,44 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.21 - 2026-05-29
+**Redesign Fases 4-6 juntas: Configurações + Filmes + Séries.** Fecha o
+redesign visual TV DIG+ (todas as telas do hub agora existem).
+
+### App Windows — `app/`
+- **Nova `SettingsScreen.qml`** (tela de Configurações, acessível pela Home):
+  título centralizado + voltar, grade de opções e rodapé com conta/MAC/versão.
+  Opções: **Otimizar Conexão** (abre a tela de DNS), **Diagnóstico de Rede**
+  (abre o diagnóstico — antes solto, agora vive aqui), **Recarregar Lista**,
+  **Limpar Cache** (apaga `playlist_*.m3u`), **Sobre o App** e **Sair da Conta**.
+  Rodapé mostra usuário IPTV, vencimento, **Endereço MAC** do dispositivo e a
+  versão do app.
+- **Nova `MoviesScreen.qml` (Filmes) e `SeriesScreen.qml` (Séries)**, ambas
+  sobre o componente reutilizável **`VodBrowser.qml`**:
+  - Barra de topo (`TopNav`) com abas Home / TV ao Vivo / Filmes / Séries +
+    busca.
+  - Coluna de **categorias** à esquerda (group-titles dos itens VOD, com
+    contagem).
+  - **Grade de pôsteres** à direita (capa via `tvg-logo`, com ícone de
+    placeholder quando não há capa).
+  - Clicar num pôster abre um **player inline** (overlay) sobre a grade; o
+    botão Voltar / ESC retorna à grade.
+- **Backend (`ChannelManager`)**: novos modelos `moviesModel`/`seriesModel`
+  (filtrados por tipo "movie"/"series") e `movieCategoriesModel`/
+  `seriesCategoriesModel` (categorias com contagem). Reaproveitam o mesmo
+  `QVector` de canais (implicitly shared — sem duplicar dados na memória).
+  Novo `clearCache()` para apagar a lista salva em disco.
+- **`AppController`**: nova propriedade `appVersion` e método `macAddress()`
+  (1ª interface de rede física ativa, via `QNetworkInterface`).
+- **Navegação**: Home liga Filmes → `movies`, Séries → `series`,
+  Configurações → `settings`. As abas do `TopNav` levam entre TV ao Vivo /
+  Filmes / Séries / Home.
+- **Sem emoji** (regra do projeto): o ícone de lupa da busca (`TopNav`) deixou
+  de ser o emoji 🔍 e virou um SVG (Material Icons). Novos ícones SVG: `back`,
+  `dns`, `pulse`, `trash`, `info`, `search`.
+- **Player mpv intocado**: nenhuma mudança em qualidade/hwdec/cache/tuning.
+  Filmes/Séries reaproveitam o mesmo `StreamPlayer`.
+
 ## v1.20 - 2026-05-28
 **Redesign Fase 3: TV ao Vivo** — tela refeita no layout de 3 colunas do
 modelo TV DIG+.
