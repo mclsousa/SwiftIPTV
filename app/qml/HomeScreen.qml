@@ -73,7 +73,7 @@ Item {
                 iconSize: 60
                 title: "Filmes"
                 titleSize: 16
-                onClicked: Window.window.notify("Filmes (em construção)")
+                onClicked: app.navigate("movies")
             }
             Card {
                 Layout.preferredWidth: 150
@@ -96,7 +96,7 @@ Item {
                 iconSize: 60
                 title: "Séries"
                 titleSize: 16
-                onClicked: Window.window.notify("Séries (em construção)")
+                onClicked: app.navigate("series")
             }
             Card {
                 Layout.preferredWidth: 150
@@ -117,7 +117,7 @@ Item {
                 Layout.preferredHeight: 64
                 iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/settings.svg"
                 label: "Configurações"
-                onClicked: Window.window.notify("Configurações (próxima versão)")
+                onClicked: app.navigate("settings")
             }
             ActionButton {
                 Layout.preferredWidth: 220

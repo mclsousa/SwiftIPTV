@@ -42,7 +42,7 @@ Item {
             anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 16; spacing: 12
             Button {
                 text: "←  Voltar"
-                onClicked: app.navigate(auth.authenticated ? "player" : "login")
+                onClicked: app.navigate(auth.authenticated ? "settings" : "login")
                 contentItem: Text { text: parent.text; color: Theme.text; font.pixelSize: 13; horizontalAlignment: Text.AlignHCenter }
                 background: Rectangle { radius: 8; color: Theme.panel2; border.color: Theme.border }
                 leftPadding: 12; rightPadding: 12; topPadding: 8; bottomPadding: 8

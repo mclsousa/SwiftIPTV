@@ -58,12 +58,16 @@ Rectangle {
                 anchors.leftMargin: 14
                 anchors.rightMargin: 10
                 spacing: 8
-                Text { text: "🔍"; color: Theme.subtext; font.pixelSize: 14 }
+                Image {
+                    source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/search.svg"
+                    sourceSize.width: 16; sourceSize.height: 16; smooth: true
+                }
                 TextField {
                     id: searchField
                     Layout.fillWidth: true
                     color: Theme.text
-                    placeholderText: ""
+                    placeholderText: "Buscar..."
+                    placeholderTextColor: Theme.subtext
                     background: null
                     verticalAlignment: TextInput.AlignVCenter
                 }

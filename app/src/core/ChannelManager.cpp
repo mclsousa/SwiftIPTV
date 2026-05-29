@@ -11,24 +11,36 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QDateTime>
+#include <QDir>
 
 ChannelManager::ChannelManager(AuthManager* auth, NetworkThread* logoCache, QObject* parent)
     : QObject(parent), m_auth(auth), m_logoCache(logoCache) {
-    m_model     = new ChannelListModel(this);
-    m_favModel  = new ChannelListModel(this);
-    m_histModel = new ChannelListModel(this);
-    m_catModel  = new CategoryListModel(this);
-    // A tela TV ao Vivo usa o modelo principal e mostra só canais ao vivo.
+    m_model        = new ChannelListModel(this);
+    m_moviesModel  = new ChannelListModel(this);
+    m_seriesModel  = new ChannelListModel(this);
+    m_favModel     = new ChannelListModel(this);
+    m_histModel    = new ChannelListModel(this);
+    m_catModel        = new CategoryListModel(this);
+    m_movieCatModel   = new CategoryListModel(this);
+    m_seriesCatModel  = new CategoryListModel(this);
+    // Cada tela usa um modelo com o typeFilter fixo correspondente, então
+    // TV ao Vivo / Filmes / Séries não interferem nos filtros umas das outras.
     // Favoritos/Histórico (m_favModel/m_histModel) ficam sem typeFilter.
     m_model->setTypeFilter(QStringLiteral("live"));
+    m_moviesModel->setTypeFilter(QStringLiteral("movie"));
+    m_seriesModel->setTypeFilter(QStringLiteral("series"));
     m_model->setLogoCache(logoCache);
+    m_moviesModel->setLogoCache(logoCache);
+    m_seriesModel->setLogoCache(logoCache);
     m_favModel->setLogoCache(logoCache);
     m_histModel->setLogoCache(logoCache);
 
     if (logoCache) {
-        connect(logoCache, &NetworkThread::logoReady, m_model,     &ChannelListModel::onLogoReady);
-        connect(logoCache, &NetworkThread::logoReady, m_favModel,  &ChannelListModel::onLogoReady);
-        connect(logoCache, &NetworkThread::logoReady, m_histModel, &ChannelListModel::onLogoReady);
+        connect(logoCache, &NetworkThread::logoReady, m_model,        &ChannelListModel::onLogoReady);
+        connect(logoCache, &NetworkThread::logoReady, m_moviesModel,  &ChannelListModel::onLogoReady);
+        connect(logoCache, &NetworkThread::logoReady, m_seriesModel,  &ChannelListModel::onLogoReady);
+        connect(logoCache, &NetworkThread::logoReady, m_favModel,     &ChannelListModel::onLogoReady);
+        connect(logoCache, &NetworkThread::logoReady, m_histModel,    &ChannelListModel::onLogoReady);
     }
     connect(&m_parser, &M3UParser::parsed, this, &ChannelManager::onParsed);
 
@@ -37,9 +49,13 @@ ChannelManager::ChannelManager(AuthManager* auth, NetworkThread* logoCache, QObj
 }
 
 QObject* ChannelManager::model() const { return m_model; }
+QObject* ChannelManager::moviesModel() const { return m_moviesModel; }
+QObject* ChannelManager::seriesModel() const { return m_seriesModel; }
 QObject* ChannelManager::favoritesModel() const { return m_favModel; }
 QObject* ChannelManager::historyModel() const { return m_histModel; }
 QObject* ChannelManager::liveCategoriesModel() const { return m_catModel; }
+QObject* ChannelManager::movieCategoriesModel() const { return m_movieCatModel; }
+QObject* ChannelManager::seriesCategoriesModel() const { return m_seriesCatModel; }
 
 void ChannelManager::setLoading(bool b) { if (m_loading != b) { m_loading = b; emit loadingChanged(); } }
 void ChannelManager::setStatus(const QString& s) { m_status = s; emit statusChanged(); }
@@ -174,9 +190,15 @@ void ChannelManager::applyData(const QByteArray& data, const QString& serverBase
 
 void ChannelManager::onParsed(QVector<Channel> channels) {
     m_channels = std::move(channels);
+    // QVector é implicitly shared (COW): atribuir m_channels aos modelos não
+    // duplica os dados — só compartilha até alguém mutar (e os modelos não mutam).
     m_model->setSource(m_channels);
+    m_moviesModel->setSource(m_channels);
+    m_seriesModel->setSource(m_channels);
     rebuildAuxModels();
-    rebuildLiveCategories();
+    rebuildCategories(QStringLiteral("live"),   m_catModel);
+    rebuildCategories(QStringLiteral("movie"),  m_movieCatModel);
+    rebuildCategories(QStringLiteral("series"), m_seriesCatModel);
     setLoading(false);
     setStatus(tr("%1 canais carregados.").arg(m_channels.size()));
     emit listReady(m_channels.size());
@@ -196,18 +218,18 @@ void ChannelManager::rebuildAuxModels() {
     m_histModel->setSource(pick(m_history));
 }
 
-void ChannelManager::rebuildLiveCategories() {
-    // Categorias distintas entre canais ao vivo, preservando a ordem de
-    // aparição no M3U, com a contagem de canais de cada uma.
+void ChannelManager::rebuildCategories(const QString& type, CategoryListModel* target) {
+    // Categorias distintas (group-title) entre os canais do tipo pedido,
+    // preservando a ordem de aparição no M3U, com a contagem de cada uma.
     QVector<QPair<QString,int>> cats;
     QHash<QString,int> idx;
     for (const auto& c : m_channels) {
-        if (c.type != QStringLiteral("live")) continue;
+        if (c.type != type) continue;
         auto it = idx.constFind(c.group);
         if (it == idx.constEnd()) { idx.insert(c.group, int(cats.size())); cats.push_back({c.group, 1}); }
         else ++cats[it.value()].second;
     }
-    m_catModel->setCategories(cats);
+    target->setCategories(cats);
 }
 
 Channel ChannelManager::channelById(const QString& id) const {
@@ -237,4 +259,14 @@ void ChannelManager::pushHistory(const QString& id) {
     while (m_history.size() > 100) m_history.removeLast();
     Settings::instance().saveStringList("history.json", m_history);
     rebuildAuxModels();
+}
+
+int ChannelManager::clearCache() {
+    QDir dir(Settings::cacheDir());
+    int removed = 0;
+    const auto files = dir.entryList(QStringList{QStringLiteral("playlist_*.m3u")}, QDir::Files);
+    for (const QString& f : files)
+        if (dir.remove(f)) ++removed;
+    setStatus(tr("Cache limpo (%1 arquivo(s)).").arg(removed));
+    return removed;
 }
