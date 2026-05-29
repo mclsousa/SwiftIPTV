@@ -5,6 +5,7 @@
 #include <QXmlStreamReader>
 #include <QThread>
 #include <QUrlQuery>
+#include <QVariantMap>
 #include <algorithm>
 
 EPGManager::EPGManager(AuthManager* auth, QObject* parent) : QObject(parent), m_auth(auth) {}
@@ -116,4 +117,21 @@ QString EPGManager::currentTimes(const QString& channelId) const {
     const Programme* p = currentFor(channelId);
     if (!p) return {};
     return p->start.toString("HH:mm") + " - " + p->stop.toString("HH:mm");
+}
+
+QVariantList EPGManager::upcoming(const QString& channelId, int n) const {
+    QVariantList out;
+    auto it = m_guide.constFind(channelId);
+    if (it == m_guide.constEnd()) return out;
+    const QDateTime now = QDateTime::currentDateTime();
+    for (const auto& p : it.value()) {
+        if (p.stop <= now) continue;            // já terminou: pula
+        QVariantMap m;
+        m["times"]   = p.start.toString("HH:mm") + " ~ " + p.stop.toString("HH:mm");
+        m["title"]   = p.title;
+        m["current"] = (p.start <= now && now < p.stop);
+        out.push_back(m);
+        if (out.size() >= n) break;
+    }
+    return out;
 }
