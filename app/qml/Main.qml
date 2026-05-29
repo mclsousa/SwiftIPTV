@@ -12,7 +12,7 @@ ApplicationWindow {
     y: app.winY
     minimumWidth: 960
     minimumHeight: 600
-    title: "DIGTV+"
+    title: "SwiftIPTV"
     color: Theme.bg
 
     onClosing: app.saveWindow(win.x, win.y, win.width, win.height)
@@ -65,4 +65,56 @@ ApplicationWindow {
     }
 
     function notify(m) { toast.msg = m; toast.opacity = 1; toastTimer.restart() }
+
+    // --- Overlay de "Recarregando lista" (animação enquanto channels.loading) ---
+    Rectangle {
+        id: loadingOverlay
+        anchors.fill: parent
+        z: 2000
+        visible: channels.loading
+        color: "#cc000000"
+        // Bloqueia interação com a UI por baixo durante o carregamento.
+        MouseArea { anchors.fill: parent; hoverEnabled: true }
+
+        Column {
+            anchors.centerIn: parent
+            spacing: 18
+
+            Item {
+                id: spinner
+                width: 58; height: 58
+                anchors.horizontalCenter: parent.horizontalCenter
+                Canvas {
+                    id: spinCanvas
+                    anchors.fill: parent
+                    Component.onCompleted: requestPaint()
+                    onPaint: {
+                        var ctx = getContext("2d"); ctx.reset()
+                        var cx = width/2, cy = height/2, r = width/2 - 5
+                        ctx.lineWidth = 5; ctx.lineCap = "round"
+                        ctx.beginPath(); ctx.strokeStyle = Theme.panel2
+                        ctx.arc(cx, cy, r, 0, 2*Math.PI); ctx.stroke()
+                        ctx.beginPath(); ctx.strokeStyle = Theme.brand
+                        ctx.arc(cx, cy, r, -Math.PI/2, Math.PI); ctx.stroke()
+                    }
+                }
+                RotationAnimator on rotation {
+                    from: 0; to: 360; duration: 850
+                    loops: Animation.Infinite; running: loadingOverlay.visible
+                }
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Recarregando lista..."
+                color: Theme.text; font.pixelSize: 17; font.bold: true
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: channels.status
+                visible: text !== ""
+                color: Theme.subtext; font.pixelSize: 13
+            }
+        }
+    }
 }

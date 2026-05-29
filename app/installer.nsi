@@ -5,8 +5,8 @@
 ;  Saida:     SwiftIPTV-Setup.exe
 ; ---------------------------------------------------------------------------
 
-!define APPNAME    "DIGTV+"
-!define COMPANY    "DIGTV+"
+!define APPNAME    "SwiftIPTV"
+!define COMPANY    "SwiftIPTV"
 !define VERSION    "1.0.0"
 !define EXENAME    "SwiftIPTV.exe"
 !define SRCDIR     "build\Release"
@@ -29,7 +29,7 @@ ShowUnInstDetails show
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 
-; Página final com checkbox "Executar DIGTV+ agora" (marcado por padrão —
+; Página final com checkbox "Executar SwiftIPTV agora" (marcado por padrão —
 ; pra definir desmarcado por default, basta definir MUI_FINISHPAGE_RUN_NOTCHECKED).
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${EXENAME}"
 !define MUI_FINISHPAGE_RUN_TEXT "Executar ${APPNAME} agora"

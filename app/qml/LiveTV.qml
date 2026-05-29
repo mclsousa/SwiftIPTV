@@ -4,6 +4,9 @@ import QtQuick.Layouts
 import QtQuick.Window
 import SwiftIPTV
 
+// TV ao Vivo — redesign moderno (estilo TiViMate/Pluto): barra de topo +
+// categorias + lista de canais com PROGRAMA ATUAL e barra de progresso (EPG) +
+// coluna do player com EPG agora/a seguir. O EPG é mantido e fica em destaque.
 Item {
     id: root
     anchors.fill: parent
@@ -11,29 +14,26 @@ Item {
 
     property string currentCategory: ""
     property string numberBuffer: ""
-    // Força reavaliação do rótulo do botão Favoritos ao alternar.
     property bool favTick: false
+    property int epgTick: 0     // incrementado p/ forçar reavaliação do EPG nas linhas
 
-    // Fullscreen: esconde topo + colunas, deixa só o vídeo.
     readonly property bool isFullscreen: Window.window && Window.window.visibility === Window.FullScreen
     function toggleFullscreen() {
         var w = Window.window
         w.visibility = (w.visibility === Window.FullScreen) ? Window.Windowed : Window.FullScreen
     }
 
-    // EPG do canal atual (atual + próximos)
     property var epgList: []
     function refreshEpg() {
         var key = player.currentTvgId ? player.currentTvgId : player.currentId
-        epgList = key ? epg.upcoming(key, 5) : []
+        epgList = key ? epg.upcoming(key, 6) : []
+        root.epgTick++          // atualiza programa atual das linhas de canal
     }
 
-    // Seleciona a primeira categoria assim que a lista de categorias existir.
     function selectFirstCategoryIfNeeded() {
         if (root.currentCategory === "" && channels.liveCategoriesModel.count > 0) {
             var name = channels.liveCategoriesModel.data(
-                channels.liveCategoriesModel.index(0, 0),
-                Qt.UserRole + 1)  // NameRole
+                channels.liveCategoriesModel.index(0, 0), Qt.UserRole + 1)
             if (name) root.setCategory(name)
         }
     }
@@ -48,27 +48,17 @@ Item {
         selectFirstCategoryIfNeeded()
         refreshEpg()
     }
-
     Connections {
         target: channels
-        function onListReady(n) {
-            Window.window.notify(n + " canais carregados")
-            selectFirstCategoryIfNeeded()
-        }
+        function onListReady(n) { Window.window.notify(n + " canais carregados"); selectFirstCategoryIfNeeded() }
         function onError(m) { Window.window.notify(m) }
     }
-    Connections {
-        target: player
-        function onCurrentChanged() { refreshEpg() }
-    }
+    Connections { target: player; function onCurrentChanged() { refreshEpg() } }
     Timer { interval: 15000; running: true; repeat: true; onTriggered: refreshEpg() }
 
-    // -------- Atalhos de teclado (portados do MainPlayer) --------
     Keys.onPressed: function(e) {
         if (e.key === Qt.Key_F11) { toggleFullscreen(); e.accepted = true }
-        else if (e.key === Qt.Key_Escape) {
-            if (root.isFullscreen) toggleFullscreen(); e.accepted = true
-        }
+        else if (e.key === Qt.Key_Escape) { if (root.isFullscreen) toggleFullscreen(); e.accepted = true }
         else if (e.key === Qt.Key_Up)   { player.prev(); e.accepted = true }
         else if (e.key === Qt.Key_Down) { player.next(); e.accepted = true }
         else if (e.key >= Qt.Key_0 && e.key <= Qt.Key_9) {
@@ -88,7 +78,6 @@ Item {
         anchors.fill: parent
         spacing: 0
 
-        // ---------- Barra de topo ----------
         TopBar {
             id: topNav
             Layout.fillWidth: true
@@ -103,15 +92,14 @@ Item {
             onSearchTextChanged: channels.model.filter = topNav.searchText
         }
 
-        // ---------- Corpo: 3 colunas ----------
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: 0
 
-            // Coluna 1: categorias
+            // Col 1: categorias
             CategorySidebar {
-                Layout.preferredWidth: 300
+                Layout.preferredWidth: 280
                 Layout.fillHeight: true
                 visible: !root.isFullscreen
                 categoryModel: channels.liveCategoriesModel
@@ -120,9 +108,9 @@ Item {
             }
             Rectangle { width: 1; Layout.fillHeight: true; color: Theme.border; visible: !root.isFullscreen }
 
-            // Coluna 2: canais da categoria
+            // Col 2: canais (com EPG do programa atual)
             Rectangle {
-                Layout.preferredWidth: 360
+                Layout.preferredWidth: 400
                 Layout.fillHeight: true
                 visible: !root.isFullscreen
                 color: Theme.bg
@@ -139,40 +127,61 @@ Item {
                     delegate: Rectangle {
                         id: chRow
                         required property string channelId
+                        required property string tvgId
                         required property string name
                         required property int number
                         required property string logoLocal
                         required property bool isCurrent
                         width: ListView.view.width
-                        height: 52
+                        height: 66
                         color: isCurrent ? Theme.panel2 : (chMouse.containsMouse ? Theme.panel : "transparent")
+
+                        // Programa atual (reavaliado quando epgTick muda)
+                        property string prog: (root.epgTick, tvgId ? epg.currentTitle(tvgId) : "")
+                        property real progPct: (root.epgTick, tvgId ? epg.currentProgress(tvgId) : 0)
+
+                        Rectangle { width: 3; height: parent.height; color: Theme.brand; visible: chRow.isCurrent }
 
                         RowLayout {
                             anchors.fill: parent
-                            anchors.leftMargin: 14; anchors.rightMargin: 12; spacing: 10
+                            anchors.leftMargin: 14; anchors.rightMargin: 12; spacing: 12
                             Text {
-                                text: chRow.number
-                                color: chRow.isCurrent ? Theme.brand : Theme.subtext
-                                font.pixelSize: 13; Layout.preferredWidth: 44
+                                text: chRow.number; color: chRow.isCurrent ? Theme.brand : Theme.subtext
+                                font.pixelSize: 13; Layout.preferredWidth: 38
                             }
                             Rectangle {
-                                width: 30; height: 30; radius: 5; color: Theme.panel2; clip: true
+                                width: 40; height: 40; radius: 6; color: Theme.panel2; clip: true
                                 Image {
-                                    anchors.fill: parent; fillMode: Image.PreserveAspectFit
+                                    anchors.fill: parent; anchors.margins: 2; fillMode: Image.PreserveAspectFit
                                     asynchronous: true; cache: true
                                     source: chRow.logoLocal ? chRow.logoLocal : ""
                                     visible: source != ""
                                 }
                             }
-                            Text {
-                                Layout.fillWidth: true
-                                text: chRow.name
-                                color: chRow.isCurrent ? Theme.brand : Theme.text
-                                font.pixelSize: 14
-                                font.bold: chRow.isCurrent
-                                elide: Text.ElideRight
+                            ColumnLayout {
+                                Layout.fillWidth: true; spacing: 3
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: chRow.name
+                                    color: chRow.isCurrent ? Theme.brand : Theme.text
+                                    font.pixelSize: 14; font.bold: true; elide: Text.ElideRight
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    visible: chRow.prog !== ""
+                                    text: chRow.prog
+                                    color: Theme.subtext; font.pixelSize: 12; elide: Text.ElideRight
+                                }
                             }
                         }
+                        // Barra de progresso do programa atual
+                        Rectangle {
+                            anchors.bottom: parent.bottom; anchors.left: parent.left
+                            width: parent.width * Math.max(0, Math.min(1, chRow.progPct))
+                            height: 2; color: Theme.brand; visible: chRow.progPct > 0
+                        }
+                        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.border; opacity: 0.5 }
+
                         MouseArea {
                             id: chMouse
                             anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -184,7 +193,7 @@ Item {
             }
             Rectangle { width: 1; Layout.fillHeight: true; color: Theme.border; visible: !root.isFullscreen }
 
-            // Coluna 3: player + EPG + botões
+            // Col 3: player + EPG agora/a seguir + botões
             Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -195,12 +204,11 @@ Item {
                     anchors.margins: root.isFullscreen ? 0 : 16
                     spacing: 12
 
-                    // Painel de vídeo 16:9
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: root.isFullscreen ? root.height : width * 9 / 16
                         color: "black"
-                        radius: root.isFullscreen ? 0 : 8
+                        radius: root.isFullscreen ? 0 : 10
                         clip: true
 
                         MpvPlayer {
@@ -225,8 +233,6 @@ Item {
                             visible: player.hasError
                             spacing: 8
                             Text { anchors.horizontalCenter: parent.horizontalCenter
-                                text: "⚠"; color: "#ffb86b"; font.pixelSize: 36 }
-                            Text { anchors.horizontalCenter: parent.horizontalCenter
                                 text: "Canal indisponível"; color: "white"; font.pixelSize: 18; font.bold: true }
                             Text { anchors.horizontalCenter: parent.horizontalCenter
                                 text: "O servidor recusou a conexão. Tente outro canal."
@@ -239,16 +245,30 @@ Item {
                         }
                     }
 
-                    // Nome do canal atual
-                    Text {
+                    // Nome do canal + programa atual
+                    ColumnLayout {
                         Layout.fillWidth: true
                         visible: !root.isFullscreen
-                        text: player.currentName ? player.currentName : ""
-                        color: Theme.text; font.pixelSize: 22; font.bold: true
-                        elide: Text.ElideRight
+                        spacing: 2
+                        Text {
+                            Layout.fillWidth: true
+                            text: player.currentName ? player.currentName : ""
+                            color: Theme.text; font.pixelSize: 22; font.bold: true; elide: Text.ElideRight
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            property string nowKey: player.currentTvgId ? player.currentTvgId : ""
+                            visible: text !== ""
+                            text: (root.epgTick, nowKey ? epg.currentTitle(nowKey) : "")
+                            color: Theme.brand; font.pixelSize: 14; elide: Text.ElideRight
+                        }
                     }
 
-                    // Lista de programas (EPG)
+                    // EPG agora/a seguir
+                    Text {
+                        visible: !root.isFullscreen && root.epgList.length > 0
+                        text: "Programação"; color: Theme.subtext; font.pixelSize: 12; font.bold: true
+                    }
                     ListView {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
@@ -257,22 +277,27 @@ Item {
                         model: root.epgList
                         boundsBehavior: Flickable.StopAtBounds
                         ScrollBar.vertical: ScrollBar { }
-                        delegate: RowLayout {
+                        delegate: Rectangle {
                             required property var modelData
                             width: ListView.view.width
-                            height: 34
-                            spacing: 14
-                            Text {
-                                text: modelData.times
-                                color: modelData.current ? Theme.brand : Theme.subtext
-                                font.pixelSize: 13; font.bold: modelData.current
-                                Layout.preferredWidth: 130
-                            }
-                            Text {
-                                Layout.fillWidth: true
-                                text: modelData.title
-                                color: modelData.current ? Theme.brand : Theme.textDim
-                                font.pixelSize: 13; elide: Text.ElideRight
+                            height: 40
+                            color: modelData.current ? Theme.brandSoft : "transparent"
+                            radius: 6
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 14
+                                Text {
+                                    text: modelData.times
+                                    color: modelData.current ? Theme.brand : Theme.subtext
+                                    font.pixelSize: 12; font.bold: modelData.current
+                                    Layout.preferredWidth: 130
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.title
+                                    color: modelData.current ? Theme.text : Theme.textDim
+                                    font.pixelSize: 13; font.bold: modelData.current; elide: Text.ElideRight
+                                }
                             }
                         }
                     }
@@ -280,28 +305,21 @@ Item {
                     // Botões
                     RowLayout {
                         Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignRight
                         visible: !root.isFullscreen
                         spacing: 12
                         Item { Layout.fillWidth: true }
-                        PillButton {
-                            label: "Playback"
-                            onClicked: Window.window.notify("Playback (em construção)")
-                        }
                         PillButton {
                             label: (root.favTick, player.currentId && channels.isFavorite(player.currentId))
                                    ? "Remover dos Favoritos" : "Adicionar aos Favoritos"
                             enabled: player.currentId && player.currentId !== ""
                             onClicked: { channels.toggleFavorite(player.currentId); root.favTick = !root.favTick }
                         }
-                        PillButton {
-                            label: "Procurar"
-                            onClicked: topNav.focusSearch()
-                        }
+                        PillButton { label: "Procurar"; onClicked: topNav.focusSearch() }
+                        PillButton { label: "Tela cheia"; enabled: player.currentId !== ""
+                            onClicked: root.toggleFullscreen() }
                     }
                 }
 
-                // Entrada numérica de canal (overlay)
                 Rectangle {
                     id: numberEntry; visible: false
                     anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 24
@@ -312,7 +330,6 @@ Item {
         }
     }
 
-    // Botão "pílula" amarelo (texto preto), padrão dos modelos.
     component PillButton: Rectangle {
         id: pill
         property string label: ""
@@ -326,8 +343,7 @@ Item {
         Text {
             id: pillText
             anchors.centerIn: parent
-            text: pill.label
-            color: Theme.buttonText
+            text: pill.label; color: Theme.buttonText
             font.pixelSize: 14; font.bold: true
         }
         MouseArea {

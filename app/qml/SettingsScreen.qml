@@ -91,8 +91,8 @@ Item {
         OptionButton {
             iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/info.svg"
             label: "Sobre o App"
-            sub: "DIGTV+ v" + app.appVersion
-            onClicked: Window.window.notify("DIGTV+ v" + app.appVersion)
+            sub: "SwiftIPTV v" + app.appVersion
+            onClicked: Window.window.notify("SwiftIPTV v" + app.appVersion)
         }
         OptionButton {
             iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/logout.svg"
@@ -124,7 +124,7 @@ Item {
         }
         Text {
             Layout.alignment: Qt.AlignHCenter
-            text: "Endereço MAC: " + (root.mac ? root.mac : "—") + "    •    DIGTV+ v" + app.appVersion
+            text: "Endereço MAC: " + (root.mac ? root.mac : "—") + "    •    SwiftIPTV v" + app.appVersion
             color: Theme.subtext; font.pixelSize: 12
         }
     }

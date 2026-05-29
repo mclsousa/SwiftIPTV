@@ -12,7 +12,7 @@ QHash<int, QByteArray> ChannelListModel::roleNames() const {
     return {
         {IdRole, "channelId"}, {NameRole, "name"}, {LogoUrlRole, "logoUrl"},
         {LogoLocalRole, "logoLocal"}, {GroupRole, "group"}, {UrlRole, "url"},
-        {NumberRole, "number"}, {CurrentRole, "isCurrent"}, {TypeRole, "type"}
+        {NumberRole, "number"}, {CurrentRole, "isCurrent"}, {TypeRole, "type"}, {TvgIdRole, "tvgId"}
     };
 }
 
@@ -28,6 +28,7 @@ QVariant ChannelListModel::data(const QModelIndex& index, int role) const {
         case UrlRole:     return c.url;
         case NumberRole:  return c.number;
         case TypeRole:    return c.type;
+        case TvgIdRole:   return c.tvgId;
         case CurrentRole: return c.id == m_currentId;
         case LogoLocalRole: {
             auto it = m_logoLocal.constFind(c.id);

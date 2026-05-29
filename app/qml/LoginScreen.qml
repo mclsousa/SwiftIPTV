@@ -41,12 +41,10 @@ Item {
             anchors.margins: 32
             spacing: 20
 
-            Image {
+            Logo {
                 Layout.alignment: Qt.AlignHCenter
-                source: "qrc:/qt/qml/SwiftIPTV/resources/logos/logo-tvdig.png"
-                sourceSize.width: 190
-                fillMode: Image.PreserveAspectFit
-                smooth: true
+                markSize: 58
+                fontSize: 30
             }
             Text {
                 Layout.alignment: Qt.AlignHCenter

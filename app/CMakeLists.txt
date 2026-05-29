@@ -86,6 +86,7 @@ qt_add_qml_module(SwiftIPTV
     QML_FILES
         qml/Theme.qml
         qml/Main.qml
+        qml/Logo.qml
         qml/LoginScreen.qml
         qml/DnsSetup.qml
         qml/HomeScreen.qml
@@ -131,6 +132,7 @@ qt_add_qml_module(SwiftIPTV
         resources/icons/tvdig/settingsv2.svg
         resources/icons/tvdig/recarregar.svg
         resources/icons/tvdig/sair.svg
+        resources/logos/logo-swift.svg
         resources/logos/logo-tvdig.png
         resources/logos/logo-tvdig-square.png
         resources/patterns/hexagons.svg

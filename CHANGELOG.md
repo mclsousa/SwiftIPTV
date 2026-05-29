@@ -9,6 +9,37 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.24 - 2026-05-29
+**Logo nova SwiftIPTV, TV ao Vivo redesenhada, navegação por categorias e
+modais de áudio/legenda.** Continuação do redesign (sobre a v1.23).
+
+### Marca
+- **Nova logo SwiftIPTV criada do zero** (vetorial): marca roxa com play +
+  linhas de velocidade + wordmark "Swift"+"IPTV" (`Logo.qml` + `logo-swift.svg`).
+  Aposenta a logo antiga.
+- **Renomeado "DIGTV+" → "SwiftIPTV"** em todo o app (título da janela, nome de
+  exibição, Configurações, instalador).
+
+### App Windows — `app/`
+- **TV ao Vivo redesenhada** (estilo TiViMate/Pluto): lista de canais com
+  **programa atual (EPG) + barra de progresso** por canal; coluna do player
+  com EPG "agora/a seguir" destacado. O EPG foi mantido e ganhou destaque.
+- **Filmes e Séries — navegação por categorias**: botão **"Ver todos"** em cada
+  fileira (abre a grade completa da categoria) e **"Ver todas as categorias"**
+  no canto superior direito (índice de todas as categorias).
+- **Modais de Faixa de áudio e Legenda** no player: os ícones agora abrem um
+  modal listando as faixas/legendas disponíveis do título atual para o usuário
+  **escolher** (não apenas alternar). Inclui opção "Desligado" para legenda.
+- **Login**: removido o link "Testar minha conexão".
+- **Após o login vai direto para a Home** (sem a tela de DNS automática; DNS
+  fica em Configurações → "Otimizar Minha Conexão").
+- **Stop ao alternar** entre TV ao Vivo / Filmes / Séries.
+- **Animação de "Recarregando lista"**: overlay com spinner ao recarregar a
+  lista IPTV.
+- **Backend**: `tvgId` exposto por canal (EPG na lista); `audioTracks()`/
+  `subtitleTracks()`/`setAudioTrack`/`setSubtitleTrack` no player.
+- Player mpv **intocado** (qualidade/hwdec/cache).
+
 ## v1.23 - 2026-05-29
 **Redesign completo do visual — estilo HBO Max / Netflix.** Reformulação de
 todas as telas para um visual cinematográfico, profissional e organizado.

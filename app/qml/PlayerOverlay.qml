@@ -18,8 +18,23 @@ Item {
     property bool active: false
     property string infoText: ""
     property bool osFull: false      // tela cheia (sem chrome)
+    // Modal de faixas (áudio/legenda)
+    property bool tracksOpen: false
+    property string trackKind: ""    // "audio" | "sub"
+    property var trackItems: []
     signal nextRequested()
     signal prevRequested()
+
+    function openTracks(kind) {
+        overlay.trackKind = kind
+        overlay.trackItems = (kind === "audio") ? vodMpv.audioTracks() : vodMpv.subtitleTracks()
+        overlay.tracksOpen = true
+    }
+    function selectTrack(id) {
+        if (overlay.trackKind === "audio") vodMpv.setAudioTrack(id)
+        else vodMpv.setSubtitleTrack(id)
+        overlay.tracksOpen = false
+    }
 
     function play(id) {
         overlay.active = true
@@ -45,7 +60,11 @@ Item {
     }
 
     Shortcut { sequence: "Esc"; enabled: overlay.active
-        onActivated: overlay.osFull ? overlay.toggleFull() : overlay.stop() }
+        onActivated: {
+            if (overlay.tracksOpen) overlay.tracksOpen = false
+            else if (overlay.osFull) overlay.toggleFull()
+            else overlay.stop()
+        } }
     Shortcut { sequence: "F11"; enabled: overlay.active; onActivated: overlay.toggleFull() }
     Shortcut { sequence: "Space"; enabled: overlay.active; onActivated: vodMpv.togglePause() }
 
@@ -92,7 +111,9 @@ Item {
             MpvPlayer {
                 id: vodMpv
                 anchors.fill: parent
-                visible: vodMpv.playing
+                // Escondido enquanto o modal de faixas está aberto (a janela
+                // nativa é opaca e cobriria o modal).
+                visible: vodMpv.playing && !overlay.tracksOpen
                 Component.onCompleted: player.attach(vodMpv)
                 onVideoDoubleClicked: overlay.toggleFull()
             }
@@ -170,12 +191,66 @@ Item {
                     Ctl { icon: "next.svg";    onClicked: overlay.nextRequested() }
                     Item { Layout.fillWidth: true }
 
-                    Ctl { icon: "audio.svg"
-                        onClicked: { vodMpv.command(["cycle","aid"]); Window.window.notify("Faixa de áudio alterada") } }
-                    Ctl { icon: "subtitles.svg"
-                        onClicked: { vodMpv.command(["cycle","sub"]); Window.window.notify("Legenda alterada") } }
+                    Ctl { icon: "audio.svg"      onClicked: overlay.openTracks("audio") }
+                    Ctl { icon: "subtitles.svg"  onClicked: overlay.openTracks("sub") }
                     Ctl { icon: "fullscreen.svg"; onClicked: overlay.toggleFull() }
                     Ctl { icon: "stop.svg";       onClicked: overlay.stop() }
+                }
+            }
+        }
+    }
+
+    // ----- Modal de faixas de áudio / legenda -----
+    Item {
+        anchors.fill: parent
+        visible: overlay.tracksOpen
+        z: 60
+        Rectangle {
+            anchors.fill: parent; color: "#cc000000"
+            MouseArea { anchors.fill: parent; onClicked: overlay.tracksOpen = false }
+        }
+        Rectangle {
+            anchors.centerIn: parent
+            width: 380
+            height: Math.min(parent.height - 120, 96 + overlay.trackItems.length * 48)
+            radius: 16; color: Theme.panel; border.color: Theme.border
+            ColumnLayout {
+                anchors.fill: parent; anchors.margins: 18; spacing: 12
+                Text {
+                    text: overlay.trackKind === "audio" ? "Faixa de áudio" : "Legendas"
+                    color: Theme.text; font.pixelSize: 18; font.bold: true
+                }
+                ListView {
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    clip: true; model: overlay.trackItems; spacing: 4
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.vertical: ScrollBar { }
+                    delegate: Rectangle {
+                        required property var modelData
+                        width: ListView.view.width; height: 44; radius: 8
+                        color: trkMouse.containsMouse ? Theme.panel2 : "transparent"
+                        RowLayout {
+                            anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 10
+                            Rectangle {
+                                width: 10; height: 10; radius: 5
+                                color: modelData.selected ? Theme.brand : "transparent"
+                                border.color: modelData.selected ? Theme.brand : Theme.subtext
+                                border.width: 1
+                            }
+                            Text {
+                                Layout.fillWidth: true; text: modelData.label
+                                color: modelData.selected ? Theme.brand : Theme.text
+                                font.pixelSize: 14; font.bold: modelData.selected; elide: Text.ElideRight
+                            }
+                        }
+                        MouseArea { id: trkMouse; anchors.fill: parent; hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor; onClicked: overlay.selectTrack(modelData.id) }
+                    }
+                    Text {
+                        anchors.centerIn: parent; visible: overlay.trackItems.length === 0
+                        text: overlay.trackKind === "audio" ? "Sem faixas de áudio" : "Sem legendas"
+                        color: Theme.subtext; font.pixelSize: 13
+                    }
                 }
             }
         }

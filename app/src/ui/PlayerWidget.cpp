@@ -6,6 +6,9 @@
 #include <QMetaObject>
 #include <QPoint>
 #include <QSize>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
 
 #include <mpv/client.h>
 
@@ -31,7 +34,7 @@
 
 #ifdef _WIN32
 namespace {
-constexpr wchar_t kVideoClassName[] = L"DIGTVPlusVideoWindow";
+constexpr wchar_t kVideoClassName[] = L"SwiftIPTVVideoWindow";
 
 LRESULT CALLBACK VideoWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     auto* self = reinterpret_cast<MpvObject*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
@@ -371,6 +374,60 @@ void MpvObject::setVolume(int v) {
 void MpvObject::togglePause() {
     if (!m_mpv) return;
     setMpvProperty("pause", m_paused ? "no" : "yes");
+}
+
+// Lê o "track-list" do mpv (JSON) e devolve as faixas do tipo pedido.
+static QVariantList readTracks(mpv_handle* mpv, const QString& wantType) {
+    QVariantList out;
+    if (!mpv) return out;
+    char* s = mpv_get_property_string(mpv, "track-list");
+    if (!s) return out;
+    const QByteArray json(s);
+    mpv_free(s);
+    const QJsonDocument doc = QJsonDocument::fromJson(json);
+    if (!doc.isArray()) return out;
+    const QJsonArray arr = doc.array();
+    for (const QJsonValue& v : arr) {
+        const QJsonObject o = v.toObject();
+        if (o.value("type").toString() != wantType) continue;
+        const int id = o.value("id").toInt();
+        QString label = o.value("title").toString();
+        const QString lang = o.value("lang").toString();
+        if (label.isEmpty() && !lang.isEmpty()) label = lang;
+        if (label.isEmpty())
+            label = (wantType == QLatin1String("audio") ? QStringLiteral("Faixa %1")
+                                                         : QStringLiteral("Legenda %1")).arg(id);
+        else if (!lang.isEmpty() && !label.contains(lang, Qt::CaseInsensitive))
+            label += QStringLiteral(" (") + lang + QStringLiteral(")");
+        QVariantMap m;
+        m["id"] = id;
+        m["label"] = label;
+        m["selected"] = o.value("selected").toBool();
+        out.push_back(m);
+    }
+    return out;
+}
+
+QVariantList MpvObject::audioTracks() const { return readTracks(m_mpv, QStringLiteral("audio")); }
+
+QVariantList MpvObject::subtitleTracks() const {
+    QVariantList subs = readTracks(m_mpv, QStringLiteral("sub"));
+    bool anySel = false;
+    for (const QVariant& v : subs) if (v.toMap().value("selected").toBool()) { anySel = true; break; }
+    QVariantMap off;
+    off["id"] = 0; off["label"] = QStringLiteral("Desligado"); off["selected"] = !anySel;
+    subs.prepend(off);
+    return subs;
+}
+
+void MpvObject::setAudioTrack(int id) {
+    if (m_mpv) setMpvProperty("aid", QString::number(id));
+}
+
+void MpvObject::setSubtitleTrack(int id) {
+    if (!m_mpv) return;
+    if (id <= 0) setMpvProperty("sid", QStringLiteral("no"));
+    else         setMpvProperty("sid", QString::number(id));
 }
 
 void MpvObject::stop() {

@@ -24,12 +24,7 @@ Rectangle {
         spacing: 26
 
         // Logo
-        Image {
-            source: "qrc:/qt/qml/SwiftIPTV/resources/logos/logo-tvdig.png"
-            sourceSize.height: 30
-            fillMode: Image.PreserveAspectFit
-            smooth: true
-        }
+        Logo { markSize: 30; fontSize: 19 }
 
         // Abas
         Repeater {
