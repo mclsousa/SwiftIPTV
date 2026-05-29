@@ -191,8 +191,8 @@ Item {
                     Ctl { icon: "next.svg";    onClicked: overlay.nextRequested() }
                     Item { Layout.fillWidth: true }
 
-                    Ctl { icon: "audio.svg"      onClicked: overlay.openTracks("audio") }
-                    Ctl { icon: "subtitles.svg"  onClicked: overlay.openTracks("sub") }
+                    Ctl { icon: "audio.svg";      onClicked: overlay.openTracks("audio") }
+                    Ctl { icon: "subtitles.svg";  onClicked: overlay.openTracks("sub") }
                     Ctl { icon: "fullscreen.svg"; onClicked: overlay.toggleFull() }
                     Ctl { icon: "stop.svg";       onClicked: overlay.stop() }
                 }
