@@ -89,7 +89,6 @@ qt_add_qml_module(SwiftIPTV
         qml/LoginScreen.qml
         qml/DnsSetup.qml
         qml/HomeScreen.qml
-        qml/MainPlayer.qml
         qml/TopNav.qml
         qml/CategorySidebar.qml
         qml/LiveTV.qml

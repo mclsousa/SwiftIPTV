@@ -39,7 +39,7 @@ ApplicationWindow {
             case "login":      return "LoginScreen.qml"
             case "dns":        return "DnsSetup.qml"
             case "home":       return "HomeScreen.qml"
-            case "player":     return "MainPlayer.qml"
+            case "player":     return "LiveTV.qml"
             case "diagnostic": return "DiagnosticView.qml"
             }
             return "LoginScreen.qml"
