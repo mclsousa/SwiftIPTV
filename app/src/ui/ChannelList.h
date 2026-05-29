@@ -65,3 +65,26 @@ private:
     QString m_currentId;
     NetworkThread* m_logoCache = nullptr;
 };
+
+// Modelo de categorias (group-title distintos) com contagem de canais.
+// Usado pela coluna esquerda da tela TV ao Vivo.
+class CategoryListModel : public QAbstractListModel {
+    Q_OBJECT
+    Q_PROPERTY(int count READ count NOTIFY countChanged)
+public:
+    enum Roles { NameRole = Qt::UserRole + 1, CountRole };
+    explicit CategoryListModel(QObject* parent = nullptr);
+
+    int rowCount(const QModelIndex& parent = {}) const override;
+    QVariant data(const QModelIndex& index, int role) const override;
+    QHash<int, QByteArray> roleNames() const override;
+
+    int count() const { return int(m_cats.size()); }
+    void setCategories(const QVector<QPair<QString,int>>& cats);
+
+signals:
+    void countChanged();
+
+private:
+    QVector<QPair<QString,int>> m_cats; // (nome, contagem) na ordem de aparição
+};

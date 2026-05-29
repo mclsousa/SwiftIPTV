@@ -131,3 +131,34 @@ int ChannelListModel::indexOfId(const QString& id) const {
     for (int i = 0; i < m_visible.size(); ++i) if (m_visible[i] == allIdx) return i;
     return -1;
 }
+
+// ---------------------------------------------------------------------------
+// CategoryListModel
+// ---------------------------------------------------------------------------
+CategoryListModel::CategoryListModel(QObject* parent) : QAbstractListModel(parent) {}
+
+int CategoryListModel::rowCount(const QModelIndex& parent) const {
+    if (parent.isValid()) return 0;
+    return int(m_cats.size());
+}
+
+QHash<int, QByteArray> CategoryListModel::roleNames() const {
+    return { {NameRole, "name"}, {CountRole, "count"} };
+}
+
+QVariant CategoryListModel::data(const QModelIndex& index, int role) const {
+    const int row = index.row();
+    if (row < 0 || row >= m_cats.size()) return {};
+    switch (role) {
+        case NameRole:  return m_cats[row].first;
+        case CountRole: return m_cats[row].second;
+    }
+    return {};
+}
+
+void CategoryListModel::setCategories(const QVector<QPair<QString,int>>& cats) {
+    beginResetModel();
+    m_cats = cats;
+    endResetModel();
+    emit countChanged();
+}
