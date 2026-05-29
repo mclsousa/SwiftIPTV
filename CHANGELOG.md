@@ -9,6 +9,36 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.22 - 2026-05-29
+**Player de VOD completo + Séries organizadas + Home alinhada.** Pacote de
+melhorias a partir do feedback do uso real da v1.21.
+
+### App Windows — `app/`
+- **Filmes e Séries agora são telas de 3 colunas** (mesmo padrão da TV ao
+  Vivo), permitindo navegar pelo catálogo enquanto um título toca:
+  `categorias | títulos | player + controles`.
+- **Player de VOD com controles completos** (`VodPlayerColumn.qml`):
+  play/pause, parar, −10s/+10s, anterior/próximo, **faixa de áudio**,
+  **legenda**, tela cheia, **barra de progresso** com tempo atual/total e
+  botão voltar. Reaproveita o `StreamPlayer` (mpv intocado).
+- **Séries organizadas em hierarquia** (corrige episódios "soltos"):
+  categoria (SERIES A, B, …) → **série** (agrupada pelo nome, ex.: "Vikings
+  [2013]") → **temporada** → **episódio**. O parser extrai nome/temporada/
+  episódio do título (`S## E##`); novo índice no `ChannelManager`
+  (`seriesInCategory` / `seasonsOf` / `episodesOf`).
+- **Filmes**: coluna de categorias agora tem o atalho **"Tudo"** (todos os
+  filmes) além das categorias do provedor.
+- **HomeScreen realinhada** ao modelo: TV ao Vivo (card grande) à esquerda,
+  grade 2×2 (Filmes/Séries/Conta/Servidores) e 3 pílulas (Configurações/
+  Recarregar/Sair) à direita — os três blocos com a **mesma altura**. Agora
+  usa os **ícones da marca TV DIG+** fornecidos pelo usuário (recoloridos
+  para o amarelo do tema).
+- **Configurações**: as opções de conexão viraram **"Testar Minha Conexão"**
+  (diagnóstico) e **"Otimizar Minha Conexão"** (DNS), como cards.
+- **Sem emoji** (regra do projeto): ícones de mídia (play/pause/stop/avançar/
+  retroceder/anterior/próximo/áudio/legenda/tela cheia) adicionados como SVG.
+- **Player mpv intocado**: sem mudança de qualidade/hwdec/cache/tuning.
+
 ## v1.21 - 2026-05-29
 **Redesign Fases 4-6 juntas: Configurações + Filmes + Séries.** Fecha o
 redesign visual TV DIG+ (todas as telas do hub agora existem).

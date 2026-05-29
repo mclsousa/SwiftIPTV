@@ -2,6 +2,9 @@
 #include <QObject>
 #include <QVector>
 #include <QStringList>
+#include <QHash>
+#include <QMap>
+#include <QVariantList>
 #include <QNetworkAccessManager>
 #include "core/M3UParser.h"
 
@@ -43,6 +46,15 @@ public:
     const QVector<Channel>& channels() const { return m_channels; }
     Channel channelById(const QString& id) const;
 
+    // --- Navegação de Séries (categoria -> série -> temporada -> episódios) ---
+    // Retornam QVariantList de QVariantMap, consumíveis direto por Repeater/GridView.
+    // seriesInCategory: [{name, poster, seasons, episodes}]
+    // seasonsOf:        [{season, episodes}]
+    // episodesOf:       [{id, name, episode, logo}]
+    Q_INVOKABLE QVariantList seriesInCategory(const QString& category) const;
+    Q_INVOKABLE QVariantList seasonsOf(const QString& category, const QString& seriesName) const;
+    Q_INVOKABLE QVariantList episodesOf(const QString& category, const QString& seriesName, int season) const;
+
 public slots:
     void loadList(bool forceRefresh = false);
     void forceServer(const QString& serverBaseUrl); // "Usar este servidor"
@@ -70,7 +82,14 @@ private:
     // Reconstrói o modelo de categorias (group-title distintos + contagem)
     // considerando só os canais de um tipo ("live" | "movie" | "series").
     void rebuildCategories(const QString& type, CategoryListModel* target);
+    // Reconstrói o índice de séries (categoria -> série -> temporada -> episódios).
+    void rebuildSeriesIndex();
     void setLoading(bool b);
+
+    // Índice de séries em memória.
+    struct Ep  { QString id; QString name; QString logo; int episode = 0; };
+    struct Ser { QString name; QString poster; QMap<int, QVector<Ep>> seasons; };
+    const Ser* findSeries(const QString& category, const QString& seriesName) const;
     void setStatus(const QString& s);
 
     AuthManager*   m_auth;
@@ -88,6 +107,7 @@ private:
     CategoryListModel* m_seriesCatModel;  // categorias de séries
 
     QVector<Channel> m_channels;
+    QHash<QString, QVector<Ser>> m_seriesByCat;  // categoria -> séries (ordem de aparição)
     QStringList m_favorites;
     QStringList m_history;
     QString m_forcedServer;

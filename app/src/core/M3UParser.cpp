@@ -33,6 +33,12 @@ QVector<Channel> M3UParser::parse(const QByteArray& data) {
     // Reserva generosa: listas reais chegam a 50k+. Evita realocações.
     channels.reserve(60000);
 
+    // Padrão de temporada/episódio dos títulos de série ("Vikings [2013] S01 E01").
+    // Compilado uma vez fora do loop. O nome da série é o que vem ANTES do match.
+    static const QRegularExpression seRe(
+        QStringLiteral("\\bS(\\d{1,2})\\s*E(\\d{1,3})\\b"),
+        QRegularExpression::CaseInsensitiveOption);
+
     // Itera por linhas sem alocar uma QStringList gigante.
     const QString text = QString::fromUtf8(data);
     qsizetype pos = 0;
@@ -83,6 +89,17 @@ QVector<Channel> M3UParser::parse(const QByteArray& data) {
             else                                                   cur.type = QStringLiteral("live");
             cur.number = ++counter;
             if (cur.name.isEmpty()) cur.name = QStringLiteral("Canal %1").arg(counter);
+            // Séries: extrai temporada/episódio do título e deriva o nome da
+            // série (tudo antes do "S## E##"). Permite agrupar episódios.
+            if (cur.type == QStringLiteral("series")) {
+                const QRegularExpressionMatch m = seRe.match(cur.name);
+                if (m.hasMatch()) {
+                    cur.season     = m.captured(1).toInt();
+                    cur.episode    = m.captured(2).toInt();
+                    cur.seriesName = cur.name.left(m.capturedStart()).trimmed();
+                }
+                if (cur.seriesName.isEmpty()) cur.seriesName = cur.name.trimmed();
+            }
             // ID de linha SEMPRE único: várias variantes (SD/HD/FHD/4K) do mesmo canal
             // compartilham o tvg-id no M3U, e usar tvg-id como ID de linha fazia clicar
             // numa variante tocar sempre a primeira ocorrência.

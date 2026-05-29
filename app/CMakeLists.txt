@@ -92,7 +92,7 @@ qt_add_qml_module(SwiftIPTV
         qml/TopNav.qml
         qml/CategorySidebar.qml
         qml/LiveTV.qml
-        qml/VodBrowser.qml
+        qml/VodPlayerColumn.qml
         qml/MoviesScreen.qml
         qml/SeriesScreen.qml
         qml/SettingsScreen.qml
@@ -113,6 +113,24 @@ qt_add_qml_module(SwiftIPTV
         resources/icons/mi/trash.svg
         resources/icons/mi/info.svg
         resources/icons/mi/search.svg
+        resources/icons/mi/play.svg
+        resources/icons/mi/pause.svg
+        resources/icons/mi/stop.svg
+        resources/icons/mi/prev.svg
+        resources/icons/mi/next.svg
+        resources/icons/mi/rewind.svg
+        resources/icons/mi/forward.svg
+        resources/icons/mi/audio.svg
+        resources/icons/mi/subtitles.svg
+        resources/icons/mi/fullscreen.svg
+        resources/icons/tvdig/tv2.svg
+        resources/icons/tvdig/filmes.svg
+        resources/icons/tvdig/series.svg
+        resources/icons/tvdig/conta.svg
+        resources/icons/tvdig/servidores.svg
+        resources/icons/tvdig/settingsv2.svg
+        resources/icons/tvdig/recarregar.svg
+        resources/icons/tvdig/sair.svg
         resources/logos/logo-tvdig.png
         resources/logos/logo-tvdig-square.png
         resources/patterns/hexagons.svg
