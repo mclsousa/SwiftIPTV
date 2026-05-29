@@ -9,6 +9,34 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.20 - 2026-05-28
+**Redesign Fase 3: TV ao Vivo** — tela refeita no layout de 3 colunas do
+modelo TV DIG+.
+
+### App Windows — `app/`
+- **Nova `LiveTV.qml`** (substitui `MainPlayer.qml`) com 3 colunas:
+  - **Barra de topo** (`TopNav.qml`, reutilizável): abas Home / TV ao Vivo /
+    Filmes / Séries + campo de busca + logo TV DIG+ à direita.
+  - **Coluna 1 — Categorias** (`CategorySidebar.qml`, reutilizável):
+    `group-title` dos canais ao vivo, cada um com a contagem de canais.
+  - **Coluna 2 — Canais**: canais da categoria selecionada (número + logo +
+    nome). Clique reproduz; duplo-clique reproduz + tela cheia.
+  - **Coluna 3 — Player + EPG + botões**: vídeo mpv, nome do canal, lista de
+    programas (atual em amarelo + próximos) e botões Playback / Adicionar aos
+    Favoritos / Procurar.
+- **Lista de TV ao Vivo agora mostra apenas canais ao vivo**: o parser
+  classifica cada item por tipo (live/movie/series) pela URL (`/movie/`,
+  `/series/`), e a TV ao Vivo filtra só os `live` (~2 mil em vez de ~147 mil).
+- **EPG**: novo método `upcoming()` lista o programa atual + os próximos.
+- **Botões**: "Favoritos" alterna o canal atual; "Procurar" foca a busca;
+  "Playback" fica como "em construção" (a definir).
+- **Player mpv intocado**: sem mudanças em qualidade/hwdec/cache/tuning.
+
+### Próximas fases
+- v1.21: SettingsScreen com Trocar DNS + Diagnóstico de Rede embutidos
+- v1.22: Tela de Filmes (VOD via API Xtream)
+- v1.23: Tela de Séries
+
 ## v1.19 - 2026-05-28
 **Redesign Fase 2: HomeScreen** — hub central após o login.
 
