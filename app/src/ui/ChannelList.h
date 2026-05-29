@@ -12,10 +12,12 @@ class ChannelListModel : public QAbstractListModel {
     Q_OBJECT
     Q_PROPERTY(int count READ count NOTIFY countChanged)
     Q_PROPERTY(QString filter READ filter WRITE setFilter NOTIFY filterChanged)
+    Q_PROPERTY(QString typeFilter READ typeFilter WRITE setTypeFilter NOTIFY typeFilterChanged)
+    Q_PROPERTY(QString categoryFilter READ categoryFilter WRITE setCategoryFilter NOTIFY categoryFilterChanged)
 public:
     enum Roles {
         IdRole = Qt::UserRole + 1,
-        NameRole, LogoUrlRole, LogoLocalRole, GroupRole, UrlRole, NumberRole, CurrentRole
+        NameRole, LogoUrlRole, LogoLocalRole, GroupRole, UrlRole, NumberRole, CurrentRole, TypeRole
     };
 
     explicit ChannelListModel(QObject* parent = nullptr);
@@ -29,6 +31,8 @@ public:
 
     int count() const { return int(m_visible.size()); }
     QString filter() const { return m_filter; }
+    QString typeFilter() const { return m_typeFilter; }
+    QString categoryFilter() const { return m_categoryFilter; }
 
     void setSource(const QVector<Channel>& channels);
     Channel channelAt(int visibleRow) const;
@@ -37,12 +41,16 @@ public:
 
 public slots:
     void setFilter(const QString& text);
+    void setTypeFilter(const QString& type);
+    void setCategoryFilter(const QString& category);
     void setCurrentId(const QString& id);
     void onLogoReady(const QString& id, const QString& localPath);
 
 signals:
     void countChanged();
     void filterChanged();
+    void typeFilterChanged();
+    void categoryFilterChanged();
 
 private:
     void rebuild();
@@ -52,6 +60,8 @@ private:
     QHash<QString,int> m_idToIndex;   // id -> índice em m_all  (O(1))
     QHash<QString,QString> m_logoLocal; // id -> caminho do logo em disco
     QString m_filter;
+    QString m_typeFilter;
+    QString m_categoryFilter;
     QString m_currentId;
     NetworkThread* m_logoCache = nullptr;
 };

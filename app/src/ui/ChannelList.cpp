@@ -12,7 +12,7 @@ QHash<int, QByteArray> ChannelListModel::roleNames() const {
     return {
         {IdRole, "channelId"}, {NameRole, "name"}, {LogoUrlRole, "logoUrl"},
         {LogoLocalRole, "logoLocal"}, {GroupRole, "group"}, {UrlRole, "url"},
-        {NumberRole, "number"}, {CurrentRole, "isCurrent"}
+        {NumberRole, "number"}, {CurrentRole, "isCurrent"}, {TypeRole, "type"}
     };
 }
 
@@ -27,6 +27,7 @@ QVariant ChannelListModel::data(const QModelIndex& index, int role) const {
         case GroupRole:   return c.group;
         case UrlRole:     return c.url;
         case NumberRole:  return c.number;
+        case TypeRole:    return c.type;
         case CurrentRole: return c.id == m_currentId;
         case LogoLocalRole: {
             auto it = m_logoLocal.constFind(c.id);
@@ -55,14 +56,13 @@ void ChannelListModel::setSource(const QVector<Channel>& channels) {
 void ChannelListModel::rebuild() {
     m_visible.clear();
     m_visible.reserve(m_all.size());
-    if (m_filter.isEmpty()) {
-        for (int i = 0; i < m_all.size(); ++i) m_visible.push_back(i);
-    } else {
-        const QString f = m_filter;
-        for (int i = 0; i < m_all.size(); ++i)
-            if (m_all[i].name.contains(f, Qt::CaseInsensitive) ||
-                m_all[i].group.contains(f, Qt::CaseInsensitive))
-                m_visible.push_back(i);
+    const QString f = m_filter;
+    for (int i = 0; i < m_all.size(); ++i) {
+        const Channel& c = m_all[i];
+        if (!m_typeFilter.isEmpty()     && c.type  != m_typeFilter)     continue;
+        if (!m_categoryFilter.isEmpty() && c.group != m_categoryFilter) continue;
+        if (!f.isEmpty() && !c.name.contains(f, Qt::CaseInsensitive))   continue;
+        m_visible.push_back(i);
     }
 }
 
@@ -73,6 +73,26 @@ void ChannelListModel::setFilter(const QString& text) {
     rebuild();
     endResetModel();
     emit filterChanged();
+    emit countChanged();
+}
+
+void ChannelListModel::setTypeFilter(const QString& type) {
+    if (m_typeFilter == type) return;
+    m_typeFilter = type;
+    beginResetModel();
+    rebuild();
+    endResetModel();
+    emit typeFilterChanged();
+    emit countChanged();
+}
+
+void ChannelListModel::setCategoryFilter(const QString& category) {
+    if (m_categoryFilter == category) return;
+    m_categoryFilter = category;
+    beginResetModel();
+    rebuild();
+    endResetModel();
+    emit categoryFilterChanged();
     emit countChanged();
 }
 
