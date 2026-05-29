@@ -319,6 +319,38 @@ QVariantList ChannelManager::episodesOf(const QString& category, const QString& 
     return out;
 }
 
+QVariantList ChannelManager::moviesInCategory(const QString& category, int limit) const {
+    QVariantList out;
+    for (const auto& c : m_channels) {
+        if (c.type != QStringLiteral("movie")) continue;
+        if (c.group != category) continue;
+        QVariantMap m;
+        m["id"]   = c.id;
+        m["name"] = c.name;
+        m["logo"] = c.logo;
+        out.push_back(m);
+        if (limit > 0 && out.size() >= limit) break;
+    }
+    return out;
+}
+
+QVariantList ChannelManager::searchSeries(const QString& text, int limit) const {
+    QVariantList out;
+    if (text.isEmpty()) return out;
+    for (auto it = m_seriesByCat.constBegin(); it != m_seriesByCat.constEnd(); ++it) {
+        for (const Ser& s : it.value()) {
+            if (!s.name.contains(text, Qt::CaseInsensitive)) continue;
+            QVariantMap m;
+            m["name"]     = s.name;
+            m["poster"]   = s.poster;
+            m["category"] = it.key();
+            out.push_back(m);
+            if (limit > 0 && out.size() >= limit) return out;
+        }
+    }
+    return out;
+}
+
 Channel ChannelManager::channelById(const QString& id) const {
     const int idx = m_model->indexOfId(id);
     if (idx >= 0) return m_model->channelAt(idx);

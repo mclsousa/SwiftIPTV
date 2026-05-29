@@ -54,6 +54,11 @@ public:
     Q_INVOKABLE QVariantList seriesInCategory(const QString& category) const;
     Q_INVOKABLE QVariantList seasonsOf(const QString& category, const QString& seriesName) const;
     Q_INVOKABLE QVariantList episodesOf(const QString& category, const QString& seriesName, int season) const;
+    // Filmes de uma categoria (até 'limit'; limit<=0 = todos). [{id, name, logo}]
+    // Alimenta as fileiras/carrosséis da tela de Filmes.
+    Q_INVOKABLE QVariantList moviesInCategory(const QString& category, int limit = 0) const;
+    // Busca séries pelo nome em todas as categorias. [{name, poster, category}]
+    Q_INVOKABLE QVariantList searchSeries(const QString& text, int limit = 60) const;
 
 public slots:
     void loadList(bool forceRefresh = false);

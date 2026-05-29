@@ -89,10 +89,10 @@ qt_add_qml_module(SwiftIPTV
         qml/LoginScreen.qml
         qml/DnsSetup.qml
         qml/HomeScreen.qml
-        qml/TopNav.qml
+        qml/TopBar.qml
         qml/CategorySidebar.qml
         qml/LiveTV.qml
-        qml/VodPlayerColumn.qml
+        qml/PlayerOverlay.qml
         qml/MoviesScreen.qml
         qml/SeriesScreen.qml
         qml/SettingsScreen.qml

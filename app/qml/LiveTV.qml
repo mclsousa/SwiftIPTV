@@ -89,15 +89,16 @@ Item {
         spacing: 0
 
         // ---------- Barra de topo ----------
-        TopNav {
+        TopBar {
             id: topNav
             Layout.fillWidth: true
             visible: !root.isFullscreen
             active: "live"
             onTabClicked: function(key) {
-                if (key === "home")        { mpv.command(["stop"]); app.navigate("home") }
-                else if (key === "movies") { mpv.command(["stop"]); app.navigate("movies") }
-                else if (key === "series") { mpv.command(["stop"]); app.navigate("series") }
+                if (key === "home")         { mpv.command(["stop"]); app.navigate("home") }
+                else if (key === "movies")  { mpv.command(["stop"]); app.navigate("movies") }
+                else if (key === "series")  { mpv.command(["stop"]); app.navigate("series") }
+                else if (key === "profile") { mpv.command(["stop"]); app.navigate("settings") }
             }
             onSearchTextChanged: channels.model.filter = topNav.searchText
         }

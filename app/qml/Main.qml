@@ -17,18 +17,14 @@ ApplicationWindow {
 
     onClosing: app.saveWindow(win.x, win.y, win.width, win.height)
 
-    // --- Pattern hexagonal sutil no fundo (TV DIG+) ---
-    // Image tile-able em SVG, opacidade muito baixa via stroke do próprio
-    // arquivo. Não muda com a tela ativa.
-    Image {
+    // --- Fundo cinematográfico (gradiente escuro com leve tom roxo) ---
+    Rectangle {
         anchors.fill: parent
-        source: "qrc:/qt/qml/SwiftIPTV/resources/patterns/hexagons.svg"
-        fillMode: Image.Tile
-        smooth: false
-        cache: true
-        sourceSize.width: 300
-        sourceSize.height: 260
         z: -10
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Theme.bg }
+            GradientStop { position: 1.0; color: Theme.bg2 }
+        }
     }
 
     Loader {
@@ -57,7 +53,7 @@ ApplicationWindow {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 28
         radius: 10
-        color: "#1f2940"
+        color: Theme.panel2
         border.color: Theme.border
         opacity: 0
         width: label.implicitWidth + 36

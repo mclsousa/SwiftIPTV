@@ -9,6 +9,42 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.23 - 2026-05-29
+**Redesign completo do visual — estilo HBO Max / Netflix.** Reformulação de
+todas as telas para um visual cinematográfico, profissional e organizado.
+
+### Tema
+- **Nova paleta HBO Max**: preto profundo com leve tom roxo + destaque violeta
+  (`#8B5CF6`) e gradiente roxo→índigo nos botões/destaques. Texto branco.
+- **Fundo gradiente** cinematográfico (substitui o pattern hexagonal).
+- **Ícones em branco** (recoloridos), destaque roxo; logo TV DIG+ mantida.
+- Nova **barra de topo** (`TopBar.qml`) estilo streaming: logo + abas com
+  indicador da aba ativa + busca + atalho de Conta/Configurações.
+
+### App Windows — `app/`
+- **Login redesenhado** (cinematográfico, brilho roxo, botão em gradiente).
+  Removido o link "Testar minha conexão" da tela de login.
+- **Ao logar, vai direto para a Home** — a tela "Otimizar sua conexão" (DNS)
+  não aparece mais automaticamente (fica em Configurações → "Otimizar Minha
+  Conexão").
+- **Home premium**: três grandes cartões (TV ao Vivo / Filmes / Séries) +
+  ações (Configurações / Recarregar / Sair).
+- **Filmes — navegação estilo Netflix**: fileiras (carrosséis) horizontais de
+  pôsteres por categoria; busca mostra uma grade de resultados; clicar abre o
+  **player em tela cheia**.
+- **Séries — fluxo completo**: carrosséis de séries por categoria → **tela de
+  detalhes** (capa + seletor de temporada + lista de episódios com miniatura)
+  → episódio abre o player. Resolve a organização ruim de temporadas/episódios.
+- **Player em tela cheia** (`PlayerOverlay.qml`) com **controles bem
+  espaçados**: anterior, −10s, play/pause, +10s, próximo, áudio, legenda, tela
+  cheia, parar, voltar + barra de progresso. (O chrome fica fora do retângulo
+  do vídeo por causa da janela nativa do mpv; em tela cheia some, ESC sai.)
+- **Stop ao alternar** entre TV ao Vivo / Filmes / Séries (e ao abrir
+  Configurações pela barra de topo).
+- **Backend**: `moviesInCategory(categoria, limite)` e `searchSeries(texto)`
+  para alimentar carrosséis e busca.
+- Player mpv **intocado** (qualidade/hwdec/cache).
+
 ## v1.22 - 2026-05-29
 **Player de VOD completo + Séries organizadas + Home alinhada.** Pacote de
 melhorias a partir do feedback do uso real da v1.21.
