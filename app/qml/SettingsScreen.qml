@@ -63,13 +63,13 @@ Item {
 
         OptionButton {
             iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/dns.svg"
-            label: "Otimizar Conexão"
+            label: "Otimizar Minha Conexão"
             sub: "Trocar o DNS do PC"
             onClicked: app.navigate("dns")
         }
         OptionButton {
             iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/pulse.svg"
-            label: "Diagnóstico de Rede"
+            label: "Testar Minha Conexão"
             sub: "Latência, velocidade, servidores"
             onClicked: app.navigate("diagnostic")
         }

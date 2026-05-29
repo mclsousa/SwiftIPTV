@@ -1,25 +1,20 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
+import QtQuick.Window
 import SwiftIPTV
 
 // Hub central do app TV DIG+ — exibido logo após o login.
-// Layout: logo no topo, grade de cards, vencimento no rodapé.
-//
-//  [TV DIG+]
-//
-//  ┌────────────┐  ┌─────────┐ ┌─────────┐   ┌──────────────┐
-//  │            │  │ FILMES  │ │ SÉRIES  │   │ CONFIGURAÇÕES │
-//  │ TV AO VIVO │  └─────────┘ └─────────┘   ├──────────────┤
-//  │            │  ┌─────────┐ ┌─────────┐   │ RECARREGAR   │
-//  │            │  │ CONTA   │ │SERVIDOR │   ├──────────────┤
-//  └────────────┘  └─────────┘ └─────────┘   │ SAIR         │
-//                                            └──────────────┘
-//  Vencimento: ...
-
+// Layout (alinhado ao modelo TV DIG+): logo no topo, três blocos centrais de
+// MESMA ALTURA (card grande "TV ao Vivo" | grade 2x2 | coluna de 3 pílulas),
+// vencimento no rodapé.
 Item {
     id: root
     anchors.fill: parent
+
+    // Altura comum dos três blocos centrais — garante alinhamento perfeito.
+    readonly property int blockH: 320
+    readonly property int gap: 16
 
     Connections {
         target: channels
@@ -27,12 +22,7 @@ Item {
         function onError(m) { Window.window.notify(m) }
     }
 
-    // Cor de fundo escura sobre o pattern hexagonal global
-    Rectangle {
-        anchors.fill: parent
-        color: Theme.bg
-        opacity: 0.85
-    }
+    Rectangle { anchors.fill: parent; color: Theme.bg; opacity: 0.85 }
 
     // ───────── Logo TV DIG+ no topo ─────────
     Image {
@@ -41,95 +31,87 @@ Item {
         anchors.top: parent.top
         anchors.topMargin: 26
         source: "qrc:/qt/qml/SwiftIPTV/resources/logos/logo-tvdig.png"
-        sourceSize.width: 140
+        sourceSize.width: 130
         fillMode: Image.PreserveAspectFit
         smooth: true
     }
 
-    // ───────── Grade central ─────────
+    // ───────── Blocos centrais ─────────
     RowLayout {
         anchors.centerIn: parent
-        anchors.verticalCenterOffset: 30
+        anchors.verticalCenterOffset: 24
         spacing: 18
 
         // ─── Card grande: TV ao Vivo ───
         Card {
-            Layout.preferredWidth: 280
-            Layout.preferredHeight: 300
-            iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/tv.svg"
-            iconSize: 110
+            Layout.preferredWidth: 300
+            Layout.preferredHeight: root.blockH
+            Layout.alignment: Qt.AlignTop
+            iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/tvdig/tv2.svg"
+            iconSize: 120
             title: "TV ao Vivo"
             titleSize: 22
             onClicked: app.navigate("player")
         }
 
-        // ─── Coluna: Filmes / Conta ───
-        ColumnLayout {
-            spacing: 18
+        // ─── Grade 2x2: Filmes / Séries / Conta / Servidores ───
+        GridLayout {
+            Layout.alignment: Qt.AlignTop
+            columns: 2
+            rowSpacing: root.gap
+            columnSpacing: root.gap
+            property int cardW: 158
+            property int cardH: (root.blockH - root.gap) / 2
+
             Card {
-                Layout.preferredWidth: 150
-                Layout.preferredHeight: 140
-                iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/movie.svg"
-                iconSize: 60
-                title: "Filmes"
-                titleSize: 16
+                Layout.preferredWidth: parent.cardW; Layout.preferredHeight: parent.cardH
+                iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/tvdig/filmes.svg"
+                iconSize: 56; title: "Filmes"; titleSize: 16
                 onClicked: app.navigate("movies")
             }
             Card {
-                Layout.preferredWidth: 150
-                Layout.preferredHeight: 140
-                iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/account.svg"
-                iconSize: 60
-                title: "Conta"
-                titleSize: 16
-                onClicked: Window.window.notify("Conta (em construção)")
-            }
-        }
-
-        // ─── Coluna: Séries / Servidores ───
-        ColumnLayout {
-            spacing: 18
-            Card {
-                Layout.preferredWidth: 150
-                Layout.preferredHeight: 140
-                iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/series.svg"
-                iconSize: 60
-                title: "Séries"
-                titleSize: 16
+                Layout.preferredWidth: parent.cardW; Layout.preferredHeight: parent.cardH
+                iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/tvdig/series.svg"
+                iconSize: 56; title: "Séries"; titleSize: 16
                 onClicked: app.navigate("series")
             }
             Card {
-                Layout.preferredWidth: 150
-                Layout.preferredHeight: 140
-                iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/servers.svg"
-                iconSize: 60
-                title: "Servidores"
-                titleSize: 16
+                Layout.preferredWidth: parent.cardW; Layout.preferredHeight: parent.cardH
+                iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/tvdig/conta.svg"
+                iconSize: 56; title: "Conta"; titleSize: 16
+                onClicked: Window.window.notify("Conta: " + (auth.usernameIptv ? auth.usernameIptv : auth.username)
+                                                 + (auth.expiresAt ? "  —  vence " + auth.expiresAt : ""))
+            }
+            Card {
+                Layout.preferredWidth: parent.cardW; Layout.preferredHeight: parent.cardH
+                iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/tvdig/servidores.svg"
+                iconSize: 56; title: "Servidores"; titleSize: 16
                 onClicked: app.navigate("dns")
             }
         }
 
-        // ─── Coluna direita: 3 botões ───
+        // ─── Coluna direita: 3 pílulas ───
         ColumnLayout {
-            spacing: 14
+            Layout.alignment: Qt.AlignTop
+            spacing: root.gap
+            property int pillW: 230
+            property int pillH: (root.blockH - 2 * root.gap) / 3
+
             ActionButton {
-                Layout.preferredWidth: 220
-                Layout.preferredHeight: 64
-                iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/settings.svg"
+                Layout.preferredWidth: parent.pillW; Layout.preferredHeight: parent.pillH
+                iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/tvdig/settingsv2.svg"
                 label: "Configurações"
                 onClicked: app.navigate("settings")
             }
             ActionButton {
-                Layout.preferredWidth: 220
-                Layout.preferredHeight: 64
-                iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/refresh.svg"
+                Layout.preferredWidth: parent.pillW; Layout.preferredHeight: parent.pillH
+                iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/tvdig/recarregar.svg"
                 label: "Recarregar"
                 onClicked: { channels.loadList(true); Window.window.notify("Recarregando lista...") }
             }
             ActionButton {
-                Layout.preferredWidth: 220
-                Layout.preferredHeight: 64
-                iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/logout.svg"
+                Layout.preferredWidth: parent.pillW; Layout.preferredHeight: parent.pillH
+                iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/tvdig/sair.svg"
                 label: "Sair"
                 labelColor: Theme.bad
                 onClicked: { auth.logout(); app.navigate("login") }
@@ -149,10 +131,10 @@ Item {
     }
 
     // ─────────────────────────────────────────────
-    // Componentes inline reutilizáveis nesta tela
+    // Componentes inline
     // ─────────────────────────────────────────────
 
-    // Card retangular grande com ícone topo + título embaixo
+    // Card com ícone centralizado + título embaixo
     component Card: Rectangle {
         id: card
         property string iconSource: ""
@@ -171,8 +153,9 @@ Item {
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: 16
-            spacing: 14
-            Item { Layout.fillHeight: true; Layout.fillWidth: true
+            spacing: 12
+            Item {
+                Layout.fillHeight: true; Layout.fillWidth: true
                 Image {
                     anchors.centerIn: parent
                     source: card.iconSource
@@ -200,7 +183,7 @@ Item {
         }
     }
 
-    // Botão "pílula" da coluna direita: ícone + texto, linha única
+    // Pílula: ícone + texto numa linha
     component ActionButton: Rectangle {
         id: btn
         property string iconSource: ""
@@ -208,7 +191,7 @@ Item {
         property color  labelColor: Theme.text
         signal clicked()
 
-        radius: 14
+        radius: 16
         color: hovered ? Theme.panel2 : Theme.panel
         border.color: hovered ? Theme.brand : Theme.border
         border.width: 1
@@ -217,20 +200,20 @@ Item {
 
         RowLayout {
             anchors.fill: parent
-            anchors.leftMargin: 18
+            anchors.leftMargin: 20
             anchors.rightMargin: 18
             spacing: 16
             Image {
                 source: btn.iconSource
-                sourceSize.width: 28
-                sourceSize.height: 28
+                sourceSize.width: 30
+                sourceSize.height: 30
                 smooth: true
             }
             Text {
                 Layout.fillWidth: true
                 text: btn.label
                 color: btn.labelColor
-                font.pixelSize: 16
+                font.pixelSize: 17
                 font.bold: true
                 verticalAlignment: Text.AlignVCenter
             }

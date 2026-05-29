@@ -18,6 +18,13 @@ struct Channel {
     QString url;    // URL do stream
     QString type;   // "live" | "movie" | "series" — classificado pela URL do stream.
     int     number = 0;
+
+    // Só preenchidos para type == "series" (extraídos do tvg-name/título via
+    // regex "S## E##"). seriesName é o nome sem o sufixo de temporada/episódio,
+    // usado para agrupar episódios na mesma série.
+    QString seriesName;
+    int     season = 0;
+    int     episode = 0;
 };
 Q_DECLARE_METATYPE(Channel)
 

@@ -12,6 +12,7 @@
 #include <QFileInfo>
 #include <QDateTime>
 #include <QDir>
+#include <algorithm>
 
 ChannelManager::ChannelManager(AuthManager* auth, NetworkThread* logoCache, QObject* parent)
     : QObject(parent), m_auth(auth), m_logoCache(logoCache) {
@@ -199,6 +200,7 @@ void ChannelManager::onParsed(QVector<Channel> channels) {
     rebuildCategories(QStringLiteral("live"),   m_catModel);
     rebuildCategories(QStringLiteral("movie"),  m_movieCatModel);
     rebuildCategories(QStringLiteral("series"), m_seriesCatModel);
+    rebuildSeriesIndex();
     setLoading(false);
     setStatus(tr("%1 canais carregados.").arg(m_channels.size()));
     emit listReady(m_channels.size());
@@ -230,6 +232,91 @@ void ChannelManager::rebuildCategories(const QString& type, CategoryListModel* t
         else ++cats[it.value()].second;
     }
     target->setCategories(cats);
+}
+
+void ChannelManager::rebuildSeriesIndex() {
+    // Agrupa episódios de série por categoria -> nome da série -> temporada,
+    // preservando a ordem de aparição das séries e ordenando episódios por número.
+    m_seriesByCat.clear();
+    QHash<QString, QHash<QString,int>> nameIdx; // categoria -> (série -> índice)
+    for (const auto& c : m_channels) {
+        if (c.type != QStringLiteral("series")) continue;
+        auto& vec = m_seriesByCat[c.group];
+        auto& idx = nameIdx[c.group];
+        int si;
+        auto it = idx.constFind(c.seriesName);
+        if (it == idx.constEnd()) {
+            si = int(vec.size());
+            idx.insert(c.seriesName, si);
+            Ser s; s.name = c.seriesName; s.poster = c.logo;
+            vec.push_back(s);
+        } else {
+            si = it.value();
+        }
+        Ser& s = vec[si];
+        if (s.poster.isEmpty() && !c.logo.isEmpty()) s.poster = c.logo;
+        s.seasons[c.season].push_back(Ep{c.id, c.name, c.logo, c.episode});
+    }
+    // Ordena episódios dentro de cada temporada pelo número do episódio.
+    for (auto& vec : m_seriesByCat)
+        for (auto& s : vec)
+            for (auto& eps : s.seasons)
+                std::sort(eps.begin(), eps.end(),
+                          [](const Ep& a, const Ep& b){ return a.episode < b.episode; });
+}
+
+const ChannelManager::Ser* ChannelManager::findSeries(const QString& category, const QString& seriesName) const {
+    auto it = m_seriesByCat.constFind(category);
+    if (it == m_seriesByCat.constEnd()) return nullptr;
+    for (const Ser& s : it.value()) if (s.name == seriesName) return &s;
+    return nullptr;
+}
+
+QVariantList ChannelManager::seriesInCategory(const QString& category) const {
+    QVariantList out;
+    auto it = m_seriesByCat.constFind(category);
+    if (it == m_seriesByCat.constEnd()) return out;
+    for (const Ser& s : it.value()) {
+        int epCount = 0;
+        for (const auto& eps : s.seasons) epCount += int(eps.size());
+        QVariantMap m;
+        m["name"]     = s.name;
+        m["poster"]   = s.poster;
+        m["seasons"]  = int(s.seasons.size());
+        m["episodes"] = epCount;
+        out.push_back(m);
+    }
+    return out;
+}
+
+QVariantList ChannelManager::seasonsOf(const QString& category, const QString& seriesName) const {
+    QVariantList out;
+    const Ser* s = findSeries(category, seriesName);
+    if (!s) return out;
+    for (auto it = s->seasons.constBegin(); it != s->seasons.constEnd(); ++it) {
+        QVariantMap m;
+        m["season"]   = it.key();
+        m["episodes"] = int(it.value().size());
+        out.push_back(m);
+    }
+    return out;
+}
+
+QVariantList ChannelManager::episodesOf(const QString& category, const QString& seriesName, int season) const {
+    QVariantList out;
+    const Ser* s = findSeries(category, seriesName);
+    if (!s) return out;
+    auto it = s->seasons.constFind(season);
+    if (it == s->seasons.constEnd()) return out;
+    for (const Ep& e : it.value()) {
+        QVariantMap m;
+        m["id"]      = e.id;
+        m["name"]    = e.name;
+        m["episode"] = e.episode;
+        m["logo"]    = e.logo;
+        out.push_back(m);
+    }
+    return out;
 }
 
 Channel ChannelManager::channelById(const QString& id) const {
