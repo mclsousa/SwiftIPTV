@@ -9,6 +9,27 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.25 - 2026-05-29
+**Salto visual: interface cinematográfica com animações.** Foco em
+modernidade, profundidade e movimento.
+
+### App Windows — `app/`
+- **Fundo "aurora" animado**: blobs de luz roxa/índigo/violeta flutuando
+  lentamente atrás de todo o conteúdo (puro QML, sutil e premium).
+- **Logo SwiftIPTV refeita**: marca em squircle com gradiente, brilho (gloss)
+  e play arredondado — mais identidade e acabamento.
+- **Login cinematográfico**: card de vidro que surge com fade+escala (leve
+  overshoot), logo com brilho pulsante, foco animado nos campos e botão em
+  gradiente com realce no hover.
+- **Home repensada** (removidos os 3 cards simples): **hero animado** com marca,
+  tagline e chamadas pra ação + **carrosséis** de Filmes e Séries em destaque
+  (estilo streaming).
+- **Animações de entrada** em todas as telas (fade-in suave) e **indicador de
+  aba animado** na barra de topo (cresce/desliza).
+- **Micro-interações**: pôsteres e botões com elevação/zoom e brilho no hover.
+- Configurações: fundo levemente translúcido pra revelar a aurora.
+- Player mpv **intocado**.
+
 ## v1.24 - 2026-05-29
 **Logo nova SwiftIPTV, TV ao Vivo redesenhada, navegação por categorias e
 modais de áudio/legenda.** Continuação do redesign (sobre a v1.23).

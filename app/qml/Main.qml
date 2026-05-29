@@ -17,13 +17,56 @@ ApplicationWindow {
 
     onClosing: app.saveWindow(win.x, win.y, win.width, win.height)
 
-    // --- Fundo cinematográfico (gradiente escuro com leve tom roxo) ---
+    // --- Fundo cinematográfico: gradiente escuro + "aurora" animada ---
     Rectangle {
         anchors.fill: parent
         z: -10
         gradient: Gradient {
             GradientStop { position: 0.0; color: Theme.bg }
             GradientStop { position: 1.0; color: Theme.bg2 }
+        }
+    }
+    // Aurora: blobs de luz suaves flutuando lentamente atrás de todo o conteúdo.
+    Item {
+        anchors.fill: parent
+        z: -9
+        clip: true
+        Image {
+            id: blobA
+            source: "qrc:/qt/qml/SwiftIPTV/resources/bg/blob-violet.svg"
+            sourceSize.width: 900; sourceSize.height: 900
+            width: 900; height: 900; opacity: 0.40
+            SequentialAnimation on x { loops: Animation.Infinite
+                NumberAnimation { to: -120; from: parent.width * 0.05; duration: 17000; easing.type: Easing.InOutSine }
+                NumberAnimation { to: parent.width * 0.05; duration: 17000; easing.type: Easing.InOutSine } }
+            SequentialAnimation on y { loops: Animation.Infinite
+                NumberAnimation { to: -260; from: -140; duration: 13000; easing.type: Easing.InOutSine }
+                NumberAnimation { to: -140; duration: 13000; easing.type: Easing.InOutSine } }
+        }
+        Image {
+            id: blobB
+            source: "qrc:/qt/qml/SwiftIPTV/resources/bg/blob-indigo.svg"
+            sourceSize.width: 1000; sourceSize.height: 1000
+            width: 1000; height: 1000; opacity: 0.38
+            SequentialAnimation on x { loops: Animation.Infinite
+                NumberAnimation { to: parent.width - 760; from: parent.width - 520; duration: 19000; easing.type: Easing.InOutSine }
+                NumberAnimation { to: parent.width - 520; duration: 19000; easing.type: Easing.InOutSine } }
+            SequentialAnimation on y { loops: Animation.Infinite
+                NumberAnimation { to: parent.height - 700; from: parent.height - 520; duration: 15000; easing.type: Easing.InOutSine }
+                NumberAnimation { to: parent.height - 520; duration: 15000; easing.type: Easing.InOutSine } }
+        }
+        Image {
+            id: blobC
+            source: "qrc:/qt/qml/SwiftIPTV/resources/bg/blob-magenta.svg"
+            sourceSize.width: 720; sourceSize.height: 720
+            width: 720; height: 720; opacity: 0.22
+            x: parent.width * 0.4; y: parent.height * 0.25
+            SequentialAnimation on y { loops: Animation.Infinite
+                NumberAnimation { to: parent.height * 0.45; from: parent.height * 0.15; duration: 21000; easing.type: Easing.InOutSine }
+                NumberAnimation { to: parent.height * 0.15; duration: 21000; easing.type: Easing.InOutSine } }
+            SequentialAnimation on opacity { loops: Animation.Infinite
+                NumberAnimation { to: 0.30; from: 0.16; duration: 9000; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.16; duration: 9000; easing.type: Easing.InOutSine } }
         }
     }
 

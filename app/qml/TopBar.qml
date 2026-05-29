@@ -46,14 +46,16 @@ Rectangle {
                            : (tabMouse.containsMouse ? Theme.text : Theme.subtext)
                     font.pixelSize: 16
                     font.bold: nav.active === modelData.k
+                    Behavior on color { ColorAnimation { duration: 150 } }
                 }
-                // Indicador roxo da aba ativa
+                // Indicador roxo da aba ativa (cresce do centro com animação)
                 Rectangle {
                     anchors.top: tabText.bottom; anchors.topMargin: 6
                     anchors.horizontalCenter: tabText.horizontalCenter
-                    width: tabText.implicitWidth; height: 3; radius: 2
+                    width: nav.active === modelData.k ? tabText.implicitWidth : 0
+                    height: 3; radius: 2
                     color: Theme.brand
-                    visible: nav.active === modelData.k
+                    Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
                 }
                 MouseArea {
                     id: tabMouse

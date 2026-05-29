@@ -11,6 +11,8 @@ import SwiftIPTV
 Item {
     id: root
     anchors.fill: parent
+    opacity: 0
+    NumberAnimation on opacity { from: 0; to: 1; duration: 380; easing.type: Easing.OutCubic }
 
     property string view: "browse"   // "browse" | "grid" | "categories" | "detail"
     property string prevView: "browse"

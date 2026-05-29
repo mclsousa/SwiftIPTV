@@ -11,6 +11,8 @@ Item {
     id: root
     anchors.fill: parent
     focus: true
+    opacity: 0
+    NumberAnimation on opacity { from: 0; to: 1; duration: 380; easing.type: Easing.OutCubic }
 
     property string currentCategory: ""
     property string numberBuffer: ""

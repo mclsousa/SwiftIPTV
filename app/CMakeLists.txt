@@ -136,6 +136,9 @@ qt_add_qml_module(SwiftIPTV
         resources/logos/logo-tvdig.png
         resources/logos/logo-tvdig-square.png
         resources/patterns/hexagons.svg
+        resources/bg/blob-violet.svg
+        resources/bg/blob-indigo.svg
+        resources/bg/blob-magenta.svg
 )
 
 # ----------------------------------------------------------------------------

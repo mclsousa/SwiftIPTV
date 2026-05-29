@@ -10,12 +10,14 @@ import SwiftIPTV
 Item {
     id: root
     anchors.fill: parent
+    opacity: 0
+    NumberAnimation on opacity { from: 0; to: 1; duration: 380; easing.type: Easing.OutCubic }
 
     // MAC do dispositivo (calculado uma vez ao abrir a tela).
     readonly property string mac: app.macAddress()
 
-    // Fundo escuro sobre o pattern hexagonal global
-    Rectangle { anchors.fill: parent; color: Theme.bg; opacity: 0.85 }
+    // Leve escurecida sobre a aurora (mantém legibilidade sem esconder o fundo)
+    Rectangle { anchors.fill: parent; color: Theme.bg; opacity: 0.45 }
 
     // ───────── Cabeçalho: voltar + título ─────────
     Item {

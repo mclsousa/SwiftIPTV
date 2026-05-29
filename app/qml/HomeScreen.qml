@@ -4,26 +4,32 @@ import QtQuick.Layouts
 import QtQuick.Window
 import SwiftIPTV
 
-// Hub central — redesign HBO Max: barra de topo + saudação + três grandes
-// cartões (TV ao Vivo / Filmes / Séries) + ações secundárias. Fundo gradiente
-// vem do Main.qml.
+// Home — vitrine estilo streaming: barra de topo + HERO animado (marca +
+// chamadas pra ação) + carrosséis de Filmes e Séries em destaque. Fundo aurora
+// vem do Main.qml. (Removidos os 3 cards simples da versão anterior.)
 Item {
     id: root
     anchors.fill: parent
 
+    property string movieCat: ""
+    property string seriesCat: ""
+
+    function refreshFeatured() {
+        if (channels.movieCategoriesModel.count > 0)
+            root.movieCat = channels.movieCategoriesModel.data(channels.movieCategoriesModel.index(0,0), Qt.UserRole+1)
+        if (channels.seriesCategoriesModel.count > 0)
+            root.seriesCat = channels.seriesCategoriesModel.data(channels.seriesCategoriesModel.index(0,0), Qt.UserRole+1)
+    }
+    Component.onCompleted: refreshFeatured()
     Connections {
         target: channels
-        function onListReady(n) { Window.window.notify(n + " canais carregados") }
+        function onListReady(n) { Window.window.notify(n + " canais carregados"); root.refreshFeatured() }
         function onError(m) { Window.window.notify(m) }
     }
 
-    function go(key) {
-        if (key === "home")          {}
-        else if (key === "live")     app.navigate("player")
-        else if (key === "movies")   app.navigate("movies")
-        else if (key === "series")   app.navigate("series")
-        else if (key === "profile")  app.navigate("settings")
-    }
+    // Entrada suave do conteúdo
+    opacity: 0
+    NumberAnimation on opacity { from: 0; to: 1; duration: 420; easing.type: Easing.OutCubic }
 
     ColumnLayout {
         anchors.fill: parent
@@ -33,136 +39,199 @@ Item {
             Layout.fillWidth: true
             active: "home"
             showSearch: false
-            onTabClicked: function(key) { root.go(key) }
+            onTabClicked: function(key) {
+                if (key === "live")         app.navigate("player")
+                else if (key === "movies")  app.navigate("movies")
+                else if (key === "series")  app.navigate("series")
+                else if (key === "profile") app.navigate("settings")
+            }
         }
 
-        // Corpo
-        Item {
+        Flickable {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            clip: true
+            contentWidth: width
+            contentHeight: col.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar { }
 
             ColumnLayout {
-                anchors.centerIn: parent
+                id: col
+                width: parent.width
                 spacing: 26
+
+                // ---------- HERO ----------
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 360
+
+                    // brilho de destaque
+                    Rectangle {
+                        anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
+                        anchors.rightMargin: -120
+                        width: 620; height: 620; radius: 310; opacity: 0.18
+                        gradient: Gradient {
+                            GradientStop { position: 0.0; color: Theme.brand }
+                            GradientStop { position: 0.6; color: "#00000000" }
+                        }
+                    }
+                    // marca grande decorativa (logo mark) à direita
+                    Image {
+                        anchors.right: parent.right; anchors.rightMargin: 80
+                        anchors.verticalCenter: parent.verticalCenter
+                        source: "qrc:/qt/qml/SwiftIPTV/resources/logos/logo-swift.svg"
+                        sourceSize.width: 260; sourceSize.height: 260
+                        opacity: 0.92
+                        SequentialAnimation on scale { loops: Animation.Infinite
+                            NumberAnimation { to: 1.04; duration: 3000; easing.type: Easing.InOutSine }
+                            NumberAnimation { to: 1.0;  duration: 3000; easing.type: Easing.InOutSine } }
+                    }
+
+                    ColumnLayout {
+                        anchors.left: parent.left; anchors.leftMargin: 44
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Math.min(560, parent.width * 0.6)
+                        spacing: 16
+
+                        Logo { markSize: 40; fontSize: 26 }
+                        Text {
+                            Layout.fillWidth: true
+                            text: "Tudo o que você quer assistir,\nnum só lugar."
+                            color: Theme.text; font.pixelSize: 40; font.bold: true; lineHeight: 1.05
+                            wrapMode: Text.WordWrap
+                        }
+                        Text {
+                            text: "Canais ao vivo, filmes e séries em alta qualidade."
+                            color: Theme.subtext; font.pixelSize: 16
+                        }
+                        RowLayout {
+                            spacing: 14
+                            Layout.topMargin: 6
+                            HeroButton {
+                                label: "Assistir TV ao Vivo"; primary: true
+                                onClicked: app.navigate("player")
+                            }
+                            HeroButton {
+                                label: "Explorar Filmes"; primary: false
+                                onClicked: app.navigate("movies")
+                            }
+                        }
+                    }
+                }
+
+                // ---------- Carrossel: Filmes ----------
+                CarouselRow {
+                    Layout.fillWidth: true
+                    title: "Filmes em destaque" + (root.movieCat ? "  ·  " + root.movieCat : "")
+                    items: root.movieCat ? channels.moviesInCategory(root.movieCat, 20) : []
+                    onPosterClicked: app.navigate("movies")
+                    onSeeAll: app.navigate("movies")
+                }
+
+                // ---------- Carrossel: Séries ----------
+                CarouselRow {
+                    Layout.fillWidth: true
+                    title: "Séries" + (root.seriesCat ? "  ·  " + root.seriesCat : "")
+                    items: root.seriesCat ? channels.seriesInCategory(root.seriesCat) : []
+                    posterField: "poster"
+                    onPosterClicked: app.navigate("series")
+                    onSeeAll: app.navigate("series")
+                }
+
+                Item { Layout.fillWidth: true; Layout.preferredHeight: 10 }
 
                 Text {
                     Layout.alignment: Qt.AlignHCenter
-                    text: "O que você quer assistir?"
-                    color: Theme.text
-                    font.pixelSize: 30; font.bold: true
+                    Layout.bottomMargin: 18
+                    text: auth.expiresAt ? ("Vencimento: " + auth.expiresAt) : ""
+                    color: Theme.subtext; font.pixelSize: 13; font.bold: true
                 }
-
-                // Três grandes cartões
-                RowLayout {
-                    Layout.alignment: Qt.AlignHCenter
-                    spacing: 22
-                    BigCard {
-                        icon: "tvdig/tv2.svg"; title: "TV ao Vivo"
-                        onClicked: app.navigate("player")
-                    }
-                    BigCard {
-                        icon: "tvdig/filmes.svg"; title: "Filmes"
-                        onClicked: app.navigate("movies")
-                    }
-                    BigCard {
-                        icon: "tvdig/series.svg"; title: "Séries"
-                        onClicked: app.navigate("series")
-                    }
-                }
-
-                // Ações secundárias
-                RowLayout {
-                    Layout.alignment: Qt.AlignHCenter
-                    spacing: 14
-                    Pill { icon: "mi/settings.svg"; label: "Configurações"
-                        onClicked: app.navigate("settings") }
-                    Pill { icon: "mi/refresh.svg"; label: "Recarregar"
-                        onClicked: { channels.loadList(true); Window.window.notify("Recarregando lista...") } }
-                    Pill { icon: "mi/logout.svg"; label: "Sair"; danger: true
-                        onClicked: { auth.logout(); app.navigate("login") } }
-                }
-            }
-
-            // Vencimento no rodapé
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: 28
-                text: auth.expiresAt ? ("Vencimento: " + auth.expiresAt) : ""
-                color: Theme.subtext; font.pixelSize: 14; font.bold: true
             }
         }
     }
 
-    // Cartão grande com ícone + título
-    component BigCard: Rectangle {
-        id: bc
-        property string icon: ""
-        property string title: ""
-        signal clicked()
-        implicitWidth: 250; implicitHeight: 200
-        radius: 16
-        color: hovered ? Theme.panel2 : Theme.panel
-        border.color: hovered ? Theme.brand : Theme.border
-        border.width: hovered ? 2 : 1
-        property bool hovered: false
-        scale: hovered ? 1.03 : 1.0
-        Behavior on scale { NumberAnimation { duration: 120 } }
-        Behavior on color { ColorAnimation { duration: 120 } }
-
-        ColumnLayout {
-            anchors.centerIn: parent
-            spacing: 16
-            Image {
-                Layout.alignment: Qt.AlignHCenter
-                source: "qrc:/qt/qml/SwiftIPTV/resources/icons/" + bc.icon
-                sourceSize.width: 84; sourceSize.height: 84; smooth: true
-            }
-            Text {
-                Layout.alignment: Qt.AlignHCenter
-                text: bc.title; color: Theme.text
-                font.pixelSize: 20; font.bold: true
-            }
-        }
-        MouseArea {
-            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-            onEntered: bc.hovered = true
-            onExited: bc.hovered = false
-            onClicked: bc.clicked()
-        }
-    }
-
-    // Pílula de ação (ícone + texto)
-    component Pill: Rectangle {
-        id: pl
-        property string icon: ""
+    // Botão do hero
+    component HeroButton: Rectangle {
+        id: hb
         property string label: ""
-        property bool danger: false
+        property bool primary: true
         signal clicked()
-        implicitWidth: row.implicitWidth + 36
-        implicitHeight: 46
-        radius: 23
-        color: hovered ? Theme.panel2 : Theme.panel
-        border.color: hovered ? (danger ? Theme.bad : Theme.brand) : Theme.border
-        border.width: 1
-        property bool hovered: false
-        Behavior on color { ColorAnimation { duration: 120 } }
-        RowLayout {
-            id: row
-            anchors.centerIn: parent
-            spacing: 10
-            Image {
-                source: "qrc:/qt/qml/SwiftIPTV/resources/icons/" + pl.icon
-                sourceSize.width: 20; sourceSize.height: 20; smooth: true
+        implicitWidth: hbTxt.implicitWidth + 44
+        implicitHeight: 50
+        radius: 25
+        color: primary ? "transparent" : (hbMouse.containsMouse ? Theme.panel2 : Theme.panel)
+        border.color: primary ? "transparent" : Theme.border
+        border.width: primary ? 0 : 1
+        scale: hbMouse.containsMouse ? 1.03 : 1.0
+        Behavior on scale { NumberAnimation { duration: 120 } }
+        clip: true
+        // gradiente do botão primário (Rectangle filho, idioma seguro)
+        Rectangle {
+            anchors.fill: parent; radius: 25; visible: hb.primary
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: hbMouse.pressed ? Theme.grad2 : Theme.grad1 }
+                GradientStop { position: 1.0; color: Theme.grad2 }
             }
-            Text { text: pl.label; color: pl.danger ? Theme.bad : Theme.text
-                font.pixelSize: 15; font.bold: true }
         }
-        MouseArea {
-            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-            onEntered: pl.hovered = true
-            onExited: pl.hovered = false
-            onClicked: pl.clicked()
+        Text { id: hbTxt; anchors.centerIn: parent; text: hb.label; z: 1
+            color: Theme.text; font.pixelSize: 15; font.bold: true }
+        MouseArea { id: hbMouse; anchors.fill: parent; hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor; onClicked: hb.clicked() }
+    }
+
+    // Carrossel reutilizável (título + fileira horizontal de pôsteres)
+    component CarouselRow: ColumnLayout {
+        id: cr
+        property string title: ""
+        property var items: []
+        property string posterField: "logo"   // "logo" (filmes) | "poster" (séries)
+        signal posterClicked()
+        signal seeAll()
+        spacing: 8
+        visible: items.length > 0
+
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 28; Layout.rightMargin: 28
+            Text { text: cr.title; color: Theme.text; font.pixelSize: 19; font.bold: true }
+            Item { Layout.fillWidth: true }
+            Text { text: "Ver todos  ›"; color: saMouse.containsMouse ? Theme.brand : Theme.subtext
+                font.pixelSize: 13; font.bold: true
+                MouseArea { id: saMouse; anchors.fill: parent; hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor; onClicked: cr.seeAll() } }
+        }
+        ListView {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 232
+            orientation: ListView.Horizontal
+            leftMargin: 28; rightMargin: 28; spacing: 14
+            clip: true; cacheBuffer: 600
+            boundsBehavior: Flickable.StopAtBounds
+            model: cr.items
+            delegate: Item {
+                required property var modelData
+                width: 140; height: 232
+                Column {
+                    anchors.fill: parent; spacing: 6
+                    Rectangle {
+                        width: parent.width; height: 196; radius: 10; color: Theme.panel; clip: true
+                        border.color: hpMouse.containsMouse ? Theme.brand : "transparent"; border.width: 2
+                        scale: hpMouse.containsMouse ? 1.06 : 1.0
+                        Behavior on scale { NumberAnimation { duration: 120 } }
+                        Image { anchors.fill: parent; fillMode: Image.PreserveAspectCrop
+                            asynchronous: true; cache: true
+                            source: modelData[cr.posterField] ? modelData[cr.posterField] : ""
+                            visible: source != "" }
+                    }
+                    Text { width: parent.width; text: modelData.name; color: Theme.textDim
+                        font.pixelSize: 12; elide: Text.ElideRight; maximumLineCount: 2
+                        wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter }
+                }
+                MouseArea { id: hpMouse; anchors.fill: parent; hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor; onClicked: cr.posterClicked() }
+            }
         }
     }
 }
