@@ -8,6 +8,7 @@
 class AuthManager;
 class NetworkThread;
 class ChannelListModel;
+class CategoryListModel;
 
 // Orquestra: monta a URL da lista, baixa com failover entre server_dns,
 // cacheia em disco (invalidação por MD5), parseia em background e alimenta os modelos.
@@ -16,6 +17,7 @@ class ChannelManager : public QObject {
     Q_PROPERTY(QObject* model READ model CONSTANT)
     Q_PROPERTY(QObject* favoritesModel READ favoritesModel CONSTANT)
     Q_PROPERTY(QObject* historyModel READ historyModel CONSTANT)
+    Q_PROPERTY(QObject* liveCategoriesModel READ liveCategoriesModel CONSTANT)
     Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
     Q_PROPERTY(QString activeServer READ activeServer NOTIFY activeServerChanged)
@@ -25,6 +27,7 @@ public:
     QObject* model() const;
     QObject* favoritesModel() const;
     QObject* historyModel() const;
+    QObject* liveCategoriesModel() const;
     bool loading() const { return m_loading; }
     QString status() const { return m_status; }
     QString activeServer() const { return m_activeServer; }
@@ -53,6 +56,7 @@ private:
     void applyData(const QByteArray& data, const QString& serverBase);
     void onParsed(QVector<Channel> channels);
     void rebuildAuxModels();
+    void rebuildLiveCategories();
     void setLoading(bool b);
     void setStatus(const QString& s);
 
@@ -64,6 +68,7 @@ private:
     ChannelListModel* m_model;
     ChannelListModel* m_favModel;
     ChannelListModel* m_histModel;
+    CategoryListModel* m_catModel;
 
     QVector<Channel> m_channels;
     QStringList m_favorites;
