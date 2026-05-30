@@ -158,6 +158,8 @@ Item {
                                 Image {
                                     anchors.fill: parent; anchors.margins: 4; fillMode: Image.PreserveAspectFit
                                     asynchronous: true; cache: true
+                                    smooth: true; mipmap: true
+                                    sourceSize.width: 96; sourceSize.height: 96
                                     source: chRow.logoLocal ? chRow.logoLocal : ""
                                     visible: source != ""
                                 }

@@ -29,11 +29,14 @@ Item {
     function playFromArray(arr, idx) {
         root.playQueue = arr
         root.playIdx = idx
-        if (idx >= 0 && idx < arr.length) playerOverlay.play(arr[idx].id)
+        if (idx >= 0 && idx < arr.length) playerOverlay.play(arr[idx].id, arr[idx].name, arr[idx].logo)
     }
     function playStep(d) {
         var i = root.playIdx + d
-        if (i >= 0 && i < root.playQueue.length) { root.playIdx = i; playerOverlay.play(root.playQueue[i].id) }
+        if (i >= 0 && i < root.playQueue.length) {
+            root.playIdx = i
+            playerOverlay.play(root.playQueue[i].id, root.playQueue[i].name, root.playQueue[i].logo)
+        }
     }
 
     Connections { target: channels; function onError(m) { Window.window.notify(m) } }
@@ -218,7 +221,7 @@ Item {
                 required property string name
                 required property string logoLocal
                 title: name; posterLocal: logoLocal
-                onClicked: { root.playQueue = []; root.playIdx = -1; playerOverlay.play(channelId) }
+                onClicked: { root.playQueue = []; root.playIdx = -1; playerOverlay.play(channelId, name, logoLocal) }
             }
             Text { anchors.centerIn: parent; visible: results.count === 0
                 text: "Nenhum resultado."; color: Theme.subtext; font.pixelSize: 15 }

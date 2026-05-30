@@ -36,14 +36,40 @@ Item {
         overlay.tracksOpen = false
     }
 
-    function play(id) {
+    // Título atual (para salvar "continuar assistindo")
+    property string curId: ""
+    property string curName: ""
+    property string curLogo: ""
+    property real   pendingResume: 0
+
+    function play(id, name, logo) {
+        overlay.curId = id
+        overlay.curName = name ? name : ""
+        overlay.curLogo = logo ? logo : ""
+        overlay.pendingResume = channels.resumePosition(id)
         overlay.active = true
         player.playById(id)
     }
     function stop() {
+        // Guarda de onde parou (Continuar assistindo) antes de encerrar.
+        if (overlay.curId !== "" && vodMpv.duration > 0)
+            channels.saveResume(overlay.curId, overlay.curName, overlay.curLogo,
+                                vodMpv.position, vodMpv.duration)
         vodMpv.command(["stop"])
         overlay.active = false
+        overlay.curId = ""
         if (overlay.osFull) toggleFull()
+    }
+
+    // Retoma de onde parou assim que o arquivo carrega.
+    Connections {
+        target: vodMpv
+        function onFileLoaded() {
+            if (overlay.pendingResume > 0) {
+                vodMpv.command(["seek", overlay.pendingResume, "absolute"])
+                overlay.pendingResume = 0
+            }
+        }
     }
     function toggleFull() {
         var w = Window.window

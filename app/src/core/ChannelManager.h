@@ -69,6 +69,15 @@ public:
     Q_INVOKABLE QVariantList recentMovies(int limit = 20) const;
     Q_INVOKABLE QVariantList recentSeries(int limit = 20) const;
 
+    // --- Retomar reprodução / Continuar assistindo (VOD) ---
+    // Salva (ou atualiza) a posição de onde o título parou.
+    Q_INVOKABLE void saveResume(const QString& id, const QString& name,
+                                const QString& logo, double posSec, double durSec);
+    // Posição salva (segundos) para retomar; 0 se não há (ou já terminou).
+    Q_INVOKABLE double resumePosition(const QString& id) const;
+    // Lista "Continuar assistindo": [{id,name,logo,position,duration}]
+    Q_INVOKABLE QVariantList recentlyPlayed(int limit = 20) const;
+
     // --- Controle parental (PIN + categorias bloqueadas) ---
     bool parentalHasPin() const { return !m_pin.isEmpty(); }
     bool parentalAutoAdult() const { return m_autoAdult; }
@@ -125,7 +134,11 @@ private:
     QString releasesCategory(const QString& type) const;
     // Reconstrói os 3 modelos de categoria (aplica o filtro parental) e notifica.
     void refreshParentalModels();
+    void loadResume();      // lê resume.json
+    void persistResume();   // grava resume.json
     void setLoading(bool b);
+
+    struct Resume { QString id; QString name; QString logo; double pos = 0; double dur = 0; };
 
     // Índice de séries em memória.
     struct Ep  { QString id; QString name; QString logo; int episode = 0; };
@@ -151,6 +164,7 @@ private:
     QHash<QString, QVector<Ser>> m_seriesByCat;  // categoria -> séries (ordem de aparição)
     QSet<QString> m_recentMovieNames;            // nomes de filmes novos vs. carga anterior
     QSet<QString> m_recentSeriesNames;           // nomes de séries novas vs. carga anterior
+    QVector<Resume> m_resume;                    // continuar assistindo (mais recente primeiro)
     // Controle parental
     QString       m_pin;                         // PIN (codificado no config.ini)
     QStringList   m_lockedCats;                  // categorias bloqueadas pelo usuário

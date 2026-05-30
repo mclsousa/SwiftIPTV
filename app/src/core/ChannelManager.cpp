@@ -12,6 +12,9 @@
 #include <QFileInfo>
 #include <QDateTime>
 #include <QDir>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
 #include <algorithm>
 
 ChannelManager::ChannelManager(AuthManager* auth, NetworkThread* logoCache, QObject* parent)
@@ -52,6 +55,8 @@ ChannelManager::ChannelManager(AuthManager* auth, NetworkThread* logoCache, QObj
     m_pin        = Settings::instance().get("parental/pin", QString()).toString();
     m_autoAdult  = Settings::instance().get("parental/auto_adult", true).toBool();
     m_lockedCats = Settings::instance().loadStringList("parental_locked.json");
+
+    loadResume();
 }
 
 QObject* ChannelManager::model() const { return m_model; }
@@ -432,6 +437,71 @@ QVariantList ChannelManager::recentSeries(int limit) const {
             const QVariantList all = seriesInCategory(cat);
             return (limit > 0) ? all.mid(0, limit) : all;
         }
+    }
+    return out;
+}
+
+// ---------------------------------------------------------------------------
+// Retomar reprodução / Continuar assistindo
+// ---------------------------------------------------------------------------
+void ChannelManager::loadResume() {
+    m_resume.clear();
+    QFile f(Settings::appDir() + QStringLiteral("/resume.json"));
+    if (!f.open(QIODevice::ReadOnly)) return;
+    const QJsonArray arr = QJsonDocument::fromJson(f.readAll()).array();
+    for (const QJsonValue& v : arr) {
+        const QJsonObject o = v.toObject();
+        Resume r;
+        r.id = o.value("id").toString();
+        r.name = o.value("name").toString();
+        r.logo = o.value("logo").toString();
+        r.pos = o.value("pos").toDouble();
+        r.dur = o.value("dur").toDouble();
+        if (!r.id.isEmpty()) m_resume.push_back(r);
+    }
+}
+
+void ChannelManager::persistResume() {
+    QJsonArray arr;
+    for (const Resume& r : m_resume) {
+        QJsonObject o;
+        o["id"] = r.id; o["name"] = r.name; o["logo"] = r.logo;
+        o["pos"] = r.pos; o["dur"] = r.dur;
+        arr.append(o);
+    }
+    QFile f(Settings::appDir() + QStringLiteral("/resume.json"));
+    if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        f.write(QJsonDocument(arr).toJson(QJsonDocument::Compact));
+}
+
+void ChannelManager::saveResume(const QString& id, const QString& name,
+                                const QString& logo, double posSec, double durSec) {
+    if (id.isEmpty() || posSec < 5) return;             // muito no início: ignora
+    // Remove entrada anterior do mesmo título.
+    for (int i = 0; i < m_resume.size(); ++i)
+        if (m_resume[i].id == id) { m_resume.removeAt(i); break; }
+    // Se já assistiu quase tudo (>95%), não guarda (considera concluído).
+    if (durSec > 0 && posSec > durSec * 0.95) { persistResume(); return; }
+    Resume r; r.id = id; r.name = name; r.logo = logo; r.pos = posSec; r.dur = durSec;
+    m_resume.prepend(r);
+    while (m_resume.size() > 30) m_resume.removeLast();
+    persistResume();
+}
+
+double ChannelManager::resumePosition(const QString& id) const {
+    for (const Resume& r : m_resume)
+        if (r.id == id) return (r.dur > 0 && r.pos > r.dur * 0.95) ? 0.0 : r.pos;
+    return 0.0;
+}
+
+QVariantList ChannelManager::recentlyPlayed(int limit) const {
+    QVariantList out;
+    for (const Resume& r : m_resume) {
+        QVariantMap m;
+        m["id"] = r.id; m["name"] = r.name; m["logo"] = r.logo;
+        m["position"] = r.pos; m["duration"] = r.dur;
+        out.push_back(m);
+        if (limit > 0 && out.size() >= limit) break;
     }
     return out;
 }

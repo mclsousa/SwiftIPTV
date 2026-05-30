@@ -9,6 +9,22 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.29 - 2026-05-29
+**Botões estilo HBO Max, continuar assistindo e ícones de canal nítidos.**
+
+### App Windows — `app/`
+- **Botões redesenhados no estilo HBO Max**: ação principal em **branco**
+  (texto/ícone escuros, ex.: "Reproduzir"); secundárias em **branco
+  translúcido** (texto branco). Aplicado na Home (Reproduzir / Explorar
+  Filmes), TV ao Vivo (Favoritos / Procurar / Tela cheia) e "Ver todas as
+  categorias". Campo de **busca** do topo também repaginado (translúcido).
+- **Continuar assistindo**: ao clicar em **Voltar** num filme/episódio, a
+  reprodução é encerrada e a **posição é salva**. Ao reabrir o título, ele
+  **retoma de onde parou**. Novo carrossel **"Continuar assistindo"** na Home.
+- **Ícones dos canais nítidos**: render com `mipmap`/`smooth` e decode em
+  resolução adequada — acaba com o serrilhado/borrão dos logos pequenos.
+- Player mpv **intocado**.
+
 ## v1.28 - 2026-05-29
 **Adicionados recentemente, controle parental, botões premium e ajustes do player.**
 

@@ -18,6 +18,7 @@ Item {
     property var    featured: null
     property var    recentM: []
     property var    recentS: []
+    property var    recentP: []   // continuar assistindo
 
     function refreshFeatured() {
         if (channels.movieCategoriesModel.count > 0)
@@ -30,6 +31,7 @@ Item {
         }
         root.recentM = channels.recentMovies(20)
         root.recentS = channels.recentSeries(20)
+        root.recentP = channels.recentlyPlayed(20)
     }
     Component.onCompleted: refreshFeatured()
     Connections {
@@ -131,18 +133,20 @@ Item {
                             color: Theme.subtext; font.pixelSize: 16
                         }
                         RowLayout {
-                            spacing: 14
+                            spacing: 12
                             Layout.topMargin: 6
-                            HeroButton {
-                                label: root.hasFeatured ? "Reproduzir" : "Assistir TV ao Vivo"
-                                primary: true
+                            AppButton {
+                                kind: "primary"; fontSize: 15
+                                text: root.hasFeatured ? "Reproduzir" : "Assistir TV ao Vivo"
+                                iconSource: root.hasFeatured ? "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/play_dark.svg" : ""
                                 onClicked: {
-                                    if (root.hasFeatured) playerOverlay.play(root.featured.id)
+                                    if (root.hasFeatured) playerOverlay.play(root.featured.id, root.featured.name, root.featured.logo)
                                     else app.navigate("player")
                                 }
                             }
-                            HeroButton {
-                                label: "Explorar Filmes"; primary: false
+                            AppButton {
+                                kind: "secondary"; fontSize: 15
+                                text: "Explorar Filmes"
                                 onClicked: app.navigate("movies")
                             }
                         }
@@ -151,10 +155,19 @@ Item {
 
                 CarouselRow {
                     Layout.fillWidth: true
+                    title: "Continuar assistindo"
+                    items: root.recentP
+                    posterField: "logo"
+                    onClickedItem: function(item) { playerOverlay.play(item.id, item.name, item.logo) }
+                    onSeeAll: {}
+                }
+
+                CarouselRow {
+                    Layout.fillWidth: true
                     title: "Filmes adicionados recentemente"
                     items: root.recentM
                     posterField: "logo"
-                    onClickedItem: function(item) { playerOverlay.play(item.id) }
+                    onClickedItem: function(item) { playerOverlay.play(item.id, item.name, item.logo) }
                     onSeeAll: app.navigate("movies")
                 }
 
@@ -172,7 +185,7 @@ Item {
                     title: "Filmes em destaque" + (root.movieCat ? "  ·  " + root.movieCat : "")
                     items: root.movieCat ? channels.moviesInCategory(root.movieCat, 20) : []
                     posterField: "logo"
-                    onClickedItem: function(item) { playerOverlay.play(item.id) }
+                    onClickedItem: function(item) { playerOverlay.play(item.id, item.name, item.logo) }
                     onSeeAll: app.navigate("movies")
                 }
 
@@ -197,34 +210,6 @@ Item {
     }
 
     PlayerOverlay { id: playerOverlay }
-
-    component HeroButton: Rectangle {
-        id: hb
-        property string label: ""
-        property bool primary: true
-        signal clicked()
-        implicitWidth: hbTxt.implicitWidth + 44
-        implicitHeight: 50
-        radius: 25
-        color: primary ? "transparent" : (hbMouse.containsMouse ? Theme.panel2 : Theme.panel)
-        border.color: primary ? "transparent" : Theme.border
-        border.width: primary ? 0 : 1
-        scale: hbMouse.containsMouse ? 1.03 : 1.0
-        Behavior on scale { NumberAnimation { duration: 120 } }
-        clip: true
-        Rectangle {
-            anchors.fill: parent; radius: 25; visible: hb.primary
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: hbMouse.pressed ? Theme.grad2 : Theme.grad1 }
-                GradientStop { position: 1.0; color: Theme.grad2 }
-            }
-        }
-        Text { id: hbTxt; anchors.centerIn: parent; text: hb.label; z: 1
-            color: Theme.text; font.pixelSize: 15; font.bold: true }
-        MouseArea { id: hbMouse; anchors.fill: parent; hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor; onClicked: hb.clicked() }
-    }
 
     component CarouselRow: ColumnLayout {
         id: cr

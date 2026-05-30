@@ -2,12 +2,12 @@ import QtQuick
 import QtQuick.Layouts
 import SwiftIPTV
 
-// Botão premium reutilizável (estilo aplicativo, não web).
-//   kind: "primary"  -> preenchido com gradiente roxo
-//         "secondary"-> superfície sólida com borda sutil
-//         "ghost"    -> transparente, realça no hover
-// Suporta ícone opcional à esquerda. Feedback de hover (leve zoom/realce) e
-// press (encolhe). NÃO redeclara 'enabled' (usa o herdado de Item).
+// Botão premium estilo HBO Max:
+//   kind "primary"   -> preenchido BRANCO, texto/ícone escuros (ação principal)
+//   kind "secondary" -> branco translúcido, texto/ícone brancos
+//   kind "ghost"     -> transparente, realça no hover
+// Ícone opcional à esquerda. Hover (leve zoom) e press (encolhe).
+// NÃO redeclara 'enabled' (usa o herdado de Item).
 Rectangle {
     id: btn
     property string text: ""
@@ -16,34 +16,21 @@ Rectangle {
     property int fontSize: 14
     signal clicked()
 
+    readonly property color fg: kind === "primary" ? "#0a0a0a" : Theme.text
+
     implicitHeight: 48
-    implicitWidth: row.implicitWidth + (kind === "ghost" ? 24 : 40)
-    radius: 12
-    clip: true
-    color: kind === "secondary" ? (m.containsMouse ? Theme.panel2 : Theme.panel)
-           : (kind === "ghost" ? (m.containsMouse ? Theme.panel2 : "transparent") : "transparent")
-    border.color: kind === "secondary" ? Theme.border : "transparent"
-    border.width: kind === "secondary" ? 1 : 0
+    implicitWidth: row.implicitWidth + (kind === "ghost" ? 24 : 44)
+    radius: height / 2
     opacity: btn.enabled ? 1.0 : 0.45
     scale: m.pressed ? 0.97 : (m.containsMouse ? 1.02 : 1.0)
     Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
-    Behavior on color { ColorAnimation { duration: 130 } }
 
-    // Preenchimento gradiente do primário
-    Rectangle {
-        anchors.fill: parent; radius: 12; visible: btn.kind === "primary"
-        gradient: Gradient {
-            orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: m.pressed ? Theme.grad2 : Theme.grad1 }
-            GradientStop { position: 1.0; color: Theme.grad2 }
-        }
+    color: {
+        if (kind === "primary")   return m.containsMouse ? "#e6e6e6" : "#ffffff"
+        if (kind === "secondary") return Qt.rgba(1, 1, 1, m.containsMouse ? 0.26 : 0.14)
+        return m.containsMouse ? Theme.panel2 : "transparent"   // ghost
     }
-    // Realce no hover (só primário)
-    Rectangle {
-        anchors.fill: parent; radius: 12; color: "#ffffff"
-        opacity: (m.containsMouse && btn.kind === "primary") ? 0.10 : 0
-        Behavior on opacity { NumberAnimation { duration: 130 } }
-    }
+    Behavior on color { ColorAnimation { duration: 130 } }
 
     RowLayout {
         id: row
@@ -56,7 +43,7 @@ Rectangle {
         }
         Text {
             text: btn.text
-            color: btn.kind === "ghost" && !m.containsMouse ? Theme.subtext : Theme.text
+            color: btn.kind === "ghost" && !m.containsMouse ? Theme.subtext : btn.fg
             font.pixelSize: btn.fontSize; font.bold: true
         }
     }

@@ -54,7 +54,7 @@ Item {
         root.playIdx = idx
         var ep = root.episodeList[idx]
         playerOverlay.infoText = root.selSeries + "  •  T" + root.selSeason + " E" + ep.episode
-        playerOverlay.play(ep.id)
+        playerOverlay.play(ep.id, root.selSeries + " · T" + root.selSeason + "E" + ep.episode, ep.logo)
     }
     function playStep(d) { root.playEp(root.playIdx + d) }
 

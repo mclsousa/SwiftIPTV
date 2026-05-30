@@ -72,11 +72,13 @@ Rectangle {
         // Busca
         Rectangle {
             visible: nav.showSearch
-            Layout.preferredWidth: 300
-            height: 40
-            radius: 20
-            color: Theme.panel
-            border.color: searchField.activeFocus ? Theme.brand : Theme.border
+            Layout.preferredWidth: 320
+            height: 42
+            radius: 21
+            color: Qt.rgba(1, 1, 1, searchField.activeFocus ? 0.16 : 0.09)
+            border.color: searchField.activeFocus ? Qt.rgba(1, 1, 1, 0.35) : "transparent"
+            border.width: 1
+            Behavior on color { ColorAnimation { duration: 130 } }
             RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: 14; anchors.rightMargin: 12
