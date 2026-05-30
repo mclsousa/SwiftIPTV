@@ -9,6 +9,25 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.39 - 2026-05-30
+**Corrige inconsistências do player em VOD + "Carregando" preso em Favoritos + Home renovada.**
+- **Filmes/séries não reiniciam mais ao terminar.** O player é compartilhado com a
+  TV ao Vivo, e a lógica de *religar no fim/stall* (que é certa pra canal ao vivo)
+  estava sendo aplicada a VOD — fazendo o título **voltar ao começo e repetir** no
+  fim, e **reiniciar do zero (perdendo a posição)** num stall de rede. Agora o
+  `StreamPlayer` distingue **ao vivo × VOD**:
+  - VOD no fim natural → **encerra o player** (não repete);
+  - VOD em stall → **não reinicia** (o mpv reconecta sozinho, sem perder posição);
+  - VOD com URL morta → mostra **"Conteúdo indisponível"** (antes ficava "Carregando" eterno);
+  - o histórico de "ao vivo" não é mais poluído com filmes.
+- **Favoritos: fim do "Carregando" preso.** Ao trocar de TV ao Vivo p/ Favoritos, o
+  app dava `stop` cru no mpv sem limpar o canal atual — o overlay "Carregando"
+  ficava preso e o watchdog religava o canal antigo em 6s. Agora usa `stop` real
+  (limpa o canal + desliga o watchdog).
+- **Home com banner cinematográfico.** O destaque deixou de ser só a capa flutuante:
+  agora a arte do título preenche o fundo (recortada e escurecida com gradientes pra
+  leitura), com o pôster nítido em destaque (halo/elevação) e texto mais marcante.
+
 ## v1.38 - 2026-05-30
 **Corrige a tela branca no 1º canal (pré-aquece o GPU) + ícones novos.**
 - **Tela branca no primeiro canal corrigida (causa raiz mais funda):** o mpv só

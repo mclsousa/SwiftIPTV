@@ -71,6 +71,15 @@ Item {
             }
         }
     }
+    // Filme/episódio chegou ao fim natural: encerra o player (não repete).
+    Connections {
+        target: player
+        function onEndReached() {
+            if (!overlay.active) return
+            overlay.curId = ""      // terminou: não salva "continuar assistindo"
+            overlay.stop()
+        }
+    }
     function toggleFull() {
         var w = Window.window
         if (!w) return

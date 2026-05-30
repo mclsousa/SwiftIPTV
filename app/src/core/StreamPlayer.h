@@ -51,6 +51,12 @@ signals:
     void hasErrorChanged();
     void slowStart();   // I-frame demorou > 800ms
     void noChannel();
+    // VOD (filme/episódio) chegou ao fim natural (EOF). NÃO é emitido para
+    // canais ao vivo (esses religam). O player de VOD usa isso pra encerrar.
+    void endReached();
+
+private:
+    bool currentIsLive() const { return m_current.type == QLatin1String("live"); }
 
 private:
     void playChannel(const Channel& c);

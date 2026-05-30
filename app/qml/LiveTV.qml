@@ -107,7 +107,11 @@ Item {
             active: root.favMode ? "favorites" : "live"
             onTabClicked: function(key) {
                 if (key === active) return        // já está nesta aba
-                mpv.command(["stop"])
+                // player.stop() (não "mpv stop" cru): limpa o canal atual e
+                // desliga o watchdog. Sem isso, ao trocar p/ Favoritos (mesma
+                // tela) o currentId ficava setado -> overlay "Carregando" preso
+                // e o watchdog religava o canal antigo em 6s.
+                player.stop()
                 if (key === "home")           app.navigate("home")
                 else if (key === "live")      app.navigate("player")
                 else if (key === "favorites") app.navigate("favorites")

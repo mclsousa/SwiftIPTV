@@ -79,63 +79,118 @@ Item {
                 // ---------- HERO ----------
                 Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 380
+                    Layout.preferredHeight: 430
 
-                    // brilho de destaque
+                    // 1) Arte ambiente em tela cheia (derivada da capa do título),
+                    //    escurecida com scrims pra leitura — visual cinematográfico.
+                    Item {
+                        anchors.fill: parent
+                        clip: true
+                        visible: root.hasFeatured
+                        Image {
+                            anchors.fill: parent
+                            fillMode: Image.PreserveAspectCrop
+                            verticalAlignment: Image.AlignTop
+                            asynchronous: true; cache: true; smooth: true; mipmap: true
+                            source: root.hasFeatured && root.featured.logo ? root.featured.logo : ""
+                            opacity: 0.55
+                        }
+                        // Scrim horizontal: esquerda sólida (texto legível) -> direita revela a arte
+                        Rectangle {
+                            anchors.fill: parent
+                            gradient: Gradient { orientation: Gradient.Horizontal
+                                GradientStop { position: 0.0;  color: Theme.bg }
+                                GradientStop { position: 0.45; color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.45) }
+                                GradientStop { position: 1.0;  color: "transparent" } }
+                        }
+                        // Scrim vertical: base funde nos carrosséis abaixo
+                        Rectangle {
+                            anchors.fill: parent
+                            gradient: Gradient {
+                                GradientStop { position: 0.0;  color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.35) }
+                                GradientStop { position: 0.55; color: "transparent" }
+                                GradientStop { position: 1.0;  color: Theme.bg } }
+                        }
+                    }
+
+                    // brilho de destaque (halo da marca)
                     Rectangle {
                         anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                        anchors.rightMargin: -60
-                        width: 640; height: 640; radius: 320; opacity: 0.20
+                        anchors.rightMargin: -80
+                        width: 660; height: 660; radius: 330; opacity: 0.18
                         gradient: Gradient {
                             GradientStop { position: 0.0; color: Theme.brand }
-                            GradientStop { position: 0.6; color: "#00000000" }
+                            GradientStop { position: 0.62; color: "#00000000" }
                         }
                     }
 
-                    // Poster do título em destaque (direita)
-                    Rectangle {
+                    // 2) Poster NÍTIDO em destaque (direita), com halo/elevação
+                    Item {
                         visible: root.hasFeatured
-                        anchors.right: parent.right; anchors.rightMargin: 70
+                        anchors.right: parent.right; anchors.rightMargin: 80
                         anchors.verticalCenter: parent.verticalCenter
-                        width: 232; height: 340; radius: 14
-                        color: Theme.panel; border.color: Theme.border; clip: true
+                        width: 248; height: 366
                         scale: 1.0
                         SequentialAnimation on scale { loops: Animation.Infinite
-                            NumberAnimation { to: 1.03; duration: 3200; easing.type: Easing.InOutSine }
-                            NumberAnimation { to: 1.0;  duration: 3200; easing.type: Easing.InOutSine } }
-                        Image {
-                            anchors.fill: parent; fillMode: Image.PreserveAspectCrop
-                            asynchronous: true; cache: true
-                            source: root.hasFeatured && root.featured.logo ? root.featured.logo : ""
-                            visible: source != ""
+                            NumberAnimation { to: 1.025; duration: 3400; easing.type: Easing.InOutSine }
+                            NumberAnimation { to: 1.0;   duration: 3400; easing.type: Easing.InOutSine } }
+                        // halo suave atrás do card
+                        Rectangle {
+                            anchors.centerIn: parent
+                            width: parent.width + 40; height: parent.height + 40; radius: 28
+                            color: Theme.brand; opacity: 0.20
+                        }
+                        Rectangle {
+                            anchors.fill: parent; radius: 16
+                            color: Theme.panel; clip: true
+                            border.color: Qt.rgba(1, 1, 1, 0.12); border.width: 1
+                            Image {
+                                anchors.fill: parent; fillMode: Image.PreserveAspectCrop
+                                asynchronous: true; cache: true; smooth: true; mipmap: true
+                                source: root.hasFeatured && root.featured.logo ? root.featured.logo : ""
+                                visible: source != ""
+                            }
                         }
                     }
+
                     ColumnLayout {
-                        anchors.left: parent.left; anchors.leftMargin: 44
+                        anchors.left: parent.left; anchors.leftMargin: 48
                         anchors.verticalCenter: parent.verticalCenter
-                        width: Math.min(620, parent.width * 0.55)
-                        spacing: 14
+                        width: Math.min(640, parent.width * 0.55)
+                        spacing: 15
 
                         Logo { markSize: 34; fontSize: 24 }
 
-                        Rectangle {
+                        RowLayout {
+                            spacing: 10
                             visible: root.hasFeatured
-                            implicitWidth: novoTxt.implicitWidth + 18; height: 24; radius: 4
-                            color: Theme.brand
-                            Text { id: novoTxt; anchors.centerIn: parent; text: "EM DESTAQUE"
-                                color: "white"; font.pixelSize: 11; font.bold: true; font.letterSpacing: 1 }
+                            Rectangle {
+                                implicitWidth: novoTxt.implicitWidth + 18; height: 24; radius: 4
+                                color: Theme.brand
+                                Text { id: novoTxt; anchors.centerIn: parent; text: "EM DESTAQUE"
+                                    color: "white"; font.pixelSize: 11; font.bold: true; font.letterSpacing: 1 }
+                            }
+                            Text {
+                                text: "Filme"; color: Theme.subtext; font.pixelSize: 12; font.bold: true
+                                font.letterSpacing: 1
+                            }
                         }
                         Text {
                             Layout.fillWidth: true
                             text: root.hasFeatured ? root.featured.name
                                   : "Tudo o que você quer assistir,\nnum só lugar."
-                            color: Theme.text; font.pixelSize: root.hasFeatured ? 38 : 36
-                            font.bold: true; lineHeight: 1.05; wrapMode: Text.WordWrap
+                            color: Theme.text; font.pixelSize: root.hasFeatured ? 42 : 36
+                            font.bold: true; lineHeight: 1.04; wrapMode: Text.WordWrap
                             maximumLineCount: 3; elide: Text.ElideRight
+                            style: Text.Raised; styleColor: Qt.rgba(0, 0, 0, 0.5)
                         }
                         Text {
-                            text: "Canais ao vivo, filmes e séries em alta qualidade."
-                            color: Theme.subtext; font.pixelSize: 16
+                            Layout.fillWidth: true
+                            text: root.hasFeatured
+                                  ? "Adicionado recentemente ao seu catálogo. Aperte play e comece a assistir."
+                                  : "Canais ao vivo, filmes e séries em alta qualidade."
+                            color: Theme.subtext; font.pixelSize: 16; wrapMode: Text.WordWrap
+                            maximumLineCount: 2; elide: Text.ElideRight
                         }
                         RowLayout {
                             spacing: 12
