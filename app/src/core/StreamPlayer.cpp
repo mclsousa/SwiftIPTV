@@ -142,6 +142,17 @@ void StreamPlayer::prev() {
     playChannel(model->channelAt(row));
 }
 
+void StreamPlayer::stop() {
+    m_iframeTimer->stop();
+    m_stallWatchdog->stop();
+    m_reloadAttempts = 0;
+    m_current = Channel{};      // limpa: o watchdog/EOF não vão religar (checam url vazia)
+    m_currentRow = -1;
+    if (m_hasError) { m_hasError = false; emit hasErrorChanged(); }
+    if (m_mpv) m_mpv->command(QStringList{"stop"});
+    emit currentChanged();
+}
+
 void StreamPlayer::playNumber(int channelNumber) {
     // Procura o canal com aquele "number" na lista completa.
     for (const auto& c : m_channels->channels())

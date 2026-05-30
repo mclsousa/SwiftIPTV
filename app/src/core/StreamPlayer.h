@@ -40,6 +40,10 @@ public slots:
     void next();
     void prev();
     void playNumber(int channelNumber);  // digitar número do canal
+    // Para a reprodução de verdade: envia "stop" ao mpv E limpa o canal atual +
+    // desliga os watchdogs (senão o auto-reload por buffering/EOF religa o vídeo
+    // em segundo plano depois de fechar o player de VOD).
+    void stop();
 
 signals:
     void currentChanged();

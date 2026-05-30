@@ -9,6 +9,14 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.34 - 2026-05-30
+**Corrige filme tocando em segundo plano + limpeza da Home.**
+- **Filmes/Séries param de verdade ao Voltar**: novo `StreamPlayer.stop()` que
+  envia "stop" ao mpv **e** limpa o canal atual + desliga os watchdogs — antes
+  o auto-reload (por buffering/EOF) religava o vídeo em segundo plano depois de
+  fechar o player.
+- Removido o carrossel "Séries · …" da Home.
+
 ## v1.33 - 2026-05-30
 **TV ao Vivo: botões só de ícone, busca removida e botão de EPG.**
 - Botões da TV ao Vivo agora são **apenas ícones** (sem texto): Favoritos

@@ -204,15 +204,6 @@ Item {
                     onSeeAll: app.navigate("movies")
                 }
 
-                CarouselRow {
-                    Layout.fillWidth: true
-                    title: "Séries" + (root.seriesCat ? "  ·  " + root.seriesCat : "")
-                    items: root.seriesCat ? channels.seriesInCategory(root.seriesCat) : []
-                    posterField: "poster"
-                    onClickedItem: function(item) { app.navigate("series") }
-                    onSeeAll: app.navigate("series")
-                }
-
                 Item { Layout.fillWidth: true; Layout.preferredHeight: 4 }
                 Text {
                     Layout.alignment: Qt.AlignHCenter

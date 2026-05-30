@@ -55,7 +55,7 @@ Item {
         if (overlay.curId !== "" && vodMpv.duration > 0)
             channels.saveResume(overlay.curId, overlay.curName, overlay.curLogo,
                                 vodMpv.position, vodMpv.duration)
-        vodMpv.command(["stop"])
+        player.stop()        // para o mpv de verdade + limpa o canal (sem religar em 2º plano)
         overlay.active = false
         overlay.curId = ""
         if (overlay.osFull) toggleFull()
