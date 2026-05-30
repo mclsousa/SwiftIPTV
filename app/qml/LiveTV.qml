@@ -107,6 +107,7 @@ Item {
                 categoryModel: channels.liveCategoriesModel
                 current: root.currentCategory
                 onCategorySelected: function(name) { root.setCategory(name) }
+                onLockedCategoryClicked: function(name) { pinDialog.openFor(name) }
             }
             Rectangle { width: 1; Layout.fillHeight: true; color: Theme.border; visible: !root.isFullscreen }
 
@@ -363,4 +364,5 @@ Item {
         }
     }
 
+    PinDialog { id: pinDialog; onUnlocked: root.setCategory(pinDialog.category) }
 }

@@ -88,6 +88,7 @@ qt_add_qml_module(SwiftIPTV
         qml/Main.qml
         qml/Logo.qml
         qml/AppButton.qml
+        qml/PinDialog.qml
         qml/LoginScreen.qml
         qml/DnsSetup.qml
         qml/HomeScreen.qml

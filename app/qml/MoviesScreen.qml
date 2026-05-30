@@ -20,6 +20,7 @@ Item {
     property var    catItems: []
     property var    playQueue: []
     property int    playIdx: -1
+    property int    lockTick: 0     // reavalia cadeado quando o parental muda
 
     function openCategory(name) {
         root.selectedCat = name
@@ -39,7 +40,11 @@ Item {
         }
     }
 
-    Connections { target: channels; function onError(m) { Window.window.notify(m) } }
+    Connections {
+        target: channels
+        function onError(m) { Window.window.notify(m) }
+        function onParentalChanged() { root.lockTick++ }
+    }
     Shortcut { sequence: "Esc"; enabled: root.view !== "rows" && root.search === "" && !playerOverlay.active
         onActivated: root.view = "rows" }
 
@@ -91,7 +96,7 @@ Item {
             Item { Layout.fillWidth: true }
             AppButton {
                 visible: root.view === "rows"
-                kind: "secondary"; fontSize: 13
+                kind: "ghost"; fontSize: 13
                 text: "Ver todas as categorias"
                 onClicked: root.view = "categories"
             }
@@ -113,7 +118,12 @@ Item {
             delegate: Column {
                 id: catRow
                 required property string name
+                // Categorias bloqueadas não exibem o conteúdo nos carrosséis
+                // (ficam acessíveis com cadeado em "Ver todas as categorias").
+                property bool locked: (root.lockTick, channels.isCategoryLocked(name))
+                visible: !locked
                 width: rows.width
+                height: locked ? 0 : implicitHeight
                 spacing: 8
                 RowLayout {
                     width: rows.width - 56
@@ -182,22 +192,33 @@ Item {
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: ScrollBar { }
             delegate: Item {
+                id: catCell
                 required property string name
                 required property int count
+                property bool locked: (root.lockTick, channels.isCategoryLocked(name))
                 width: catsView.cellWidth; height: catsView.cellHeight
                 Rectangle {
                     anchors.fill: parent; anchors.margins: 6
                     radius: 12
                     color: ccMouse.containsMouse ? Theme.panel2 : Theme.panel
                     border.color: ccMouse.containsMouse ? Theme.brand : Theme.border
-                    ColumnLayout {
-                        anchors.fill: parent; anchors.margins: 14; spacing: 2
-                        Text { Layout.fillWidth: true; text: name; color: Theme.text
-                            font.pixelSize: 15; font.bold: true; elide: Text.ElideRight }
-                        Text { text: count + " títulos"; color: Theme.subtext; font.pixelSize: 12 }
+                    RowLayout {
+                        anchors.fill: parent; anchors.margins: 14; spacing: 10
+                        ColumnLayout {
+                            Layout.fillWidth: true; spacing: 2
+                            Text { Layout.fillWidth: true; text: catCell.name; color: Theme.text
+                                font.pixelSize: 15; font.bold: true; elide: Text.ElideRight }
+                            Text { text: catCell.count + " títulos"; color: Theme.subtext; font.pixelSize: 12 }
+                        }
+                        Image {
+                            visible: catCell.locked
+                            source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/lock.svg"
+                            sourceSize.width: 18; sourceSize.height: 18; opacity: 0.85
+                        }
                     }
                     MouseArea { id: ccMouse; anchors.fill: parent; hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor; onClicked: root.openCategory(name) }
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: catCell.locked ? pinDialog.openFor(catCell.name) : root.openCategory(catCell.name) }
                 }
             }
         }
@@ -233,6 +254,8 @@ Item {
         onNextRequested: root.playStep(1)
         onPrevRequested: root.playStep(-1)
     }
+
+    PinDialog { id: pinDialog; onUnlocked: root.openCategory(pinDialog.category) }
 
     component PosterCard: Item {
         id: pc

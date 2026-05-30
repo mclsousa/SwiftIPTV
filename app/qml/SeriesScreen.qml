@@ -28,6 +28,7 @@ Item {
     property var    episodeList: []
     property string selPoster: ""
     property int    playIdx: -1
+    property int    lockTick: 0
 
     function openCategoryGrid(name) {
         root.selectedCat = name
@@ -58,7 +59,11 @@ Item {
     }
     function playStep(d) { root.playEp(root.playIdx + d) }
 
-    Connections { target: channels; function onError(m) { Window.window.notify(m) } }
+    Connections {
+        target: channels
+        function onError(m) { Window.window.notify(m) }
+        function onParentalChanged() { root.lockTick++ }
+    }
     Shortcut { sequence: "Esc"; enabled: !playerOverlay.active && (root.view !== "browse" || root.search !== "")
         onActivated: {
             if (root.view === "detail") root.view = root.prevView
@@ -111,7 +116,7 @@ Item {
             Item { Layout.fillWidth: true }
             AppButton {
                 visible: root.view === "browse"
-                kind: "secondary"; fontSize: 13
+                kind: "ghost"; fontSize: 13
                 text: "Ver todas as categorias"
                 onClicked: root.view = "categories"
             }
@@ -133,7 +138,10 @@ Item {
             delegate: Column {
                 id: catRow
                 required property string name
+                property bool locked: (root.lockTick, channels.isCategoryLocked(name))
+                visible: !locked
                 width: rows.width
+                height: locked ? 0 : implicitHeight
                 spacing: 8
                 RowLayout {
                     width: rows.width - 56; x: 28
@@ -197,21 +205,32 @@ Item {
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: ScrollBar { }
             delegate: Item {
+                id: catCell
                 required property string name
                 required property int count
+                property bool locked: (root.lockTick, channels.isCategoryLocked(name))
                 width: catsView.cellWidth; height: catsView.cellHeight
                 Rectangle {
                     anchors.fill: parent; anchors.margins: 6; radius: 12
                     color: ccMouse.containsMouse ? Theme.panel2 : Theme.panel
                     border.color: ccMouse.containsMouse ? Theme.brand : Theme.border
-                    ColumnLayout {
-                        anchors.fill: parent; anchors.margins: 14; spacing: 2
-                        Text { Layout.fillWidth: true; text: name; color: Theme.text
-                            font.pixelSize: 15; font.bold: true; elide: Text.ElideRight }
-                        Text { text: count + " séries"; color: Theme.subtext; font.pixelSize: 12 }
+                    RowLayout {
+                        anchors.fill: parent; anchors.margins: 14; spacing: 10
+                        ColumnLayout {
+                            Layout.fillWidth: true; spacing: 2
+                            Text { Layout.fillWidth: true; text: catCell.name; color: Theme.text
+                                font.pixelSize: 15; font.bold: true; elide: Text.ElideRight }
+                            Text { text: catCell.count + " séries"; color: Theme.subtext; font.pixelSize: 12 }
+                        }
+                        Image {
+                            visible: catCell.locked
+                            source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/lock.svg"
+                            sourceSize.width: 18; sourceSize.height: 18; opacity: 0.85
+                        }
                     }
                     MouseArea { id: ccMouse; anchors.fill: parent; hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor; onClicked: root.openCategoryGrid(name) }
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: catCell.locked ? pinDialog.openFor(catCell.name) : root.openCategoryGrid(catCell.name) }
                 }
             }
         }
@@ -343,6 +362,8 @@ Item {
         onNextRequested: root.playStep(1)
         onPrevRequested: root.playStep(-1)
     }
+
+    PinDialog { id: pinDialog; onUnlocked: root.openCategoryGrid(pinDialog.category) }
 
     component SeriesCard: Item {
         id: sc

@@ -9,6 +9,26 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.31 - 2026-05-30
+**Banner "recém-adicionado", etiqueta NOVO, controle parental com cadeado e
+recuperação de PIN, e refinos.**
+
+### App Windows — `app/`
+- **Banner em destaque = último filme adicionado** (atualiza a cada recarga) com
+  etiqueta **"NOVO · RECÉM-ADICIONADO"**.
+- **Etiqueta "NOVO"** nos cards dos carrosséis de filmes/séries recém-adicionados.
+- **Controle parental repaginado**: categorias bloqueadas **não somem mais** —
+  aparecem com um **cadeado** na grade (TV ao Vivo) e no índice de categorias;
+  ao clicar, pedem o **PIN** (libera na sessão). Conteúdo VOD bloqueado fica fora
+  dos carrosséis (acessível com cadeado em "Ver todas as categorias").
+- **Recuperação de PIN esquecido**: opção "Esqueci o PIN" (no cadeado e nas
+  Configurações) que redefine o PIN confirmando a **senha da conta**.
+- **"Ver todas as categorias"** virou botão *ghost* (só texto; vira botão no
+  hover/clique).
+- **Conteúdo aparece mais rápido após recarregar**: gravação das listas de
+  "vistos" foi tirada do caminho crítico (feita após a UI pintar).
+- Player mpv **intocado**.
+
 ## v1.30 - 2026-05-29
 **Botões refeitos (escolha do usuário): branco/cinza sólido, cantos pequenos.**
 - `AppButton`: principal **branco** sólido (texto/ícone escuros), secundário

@@ -238,7 +238,8 @@ void ChannelManager::rebuildCategories(const QString& type, CategoryListModel* t
     QHash<QString,int> idx;
     for (const auto& c : m_channels) {
         if (c.type != type) continue;
-        if (isCategoryLocked(c.group)) continue;   // controle parental: oculta categorias bloqueadas
+        // (Controle parental NÃO oculta mais: categorias bloqueadas aparecem
+        //  com cadeado e pedem PIN ao abrir — a UI cuida disso.)
         auto it = idx.constFind(c.group);
         if (it == idx.constEnd()) { idx.insert(c.group, int(cats.size())); cats.push_back({c.group, 1}); }
         else ++cats[it.value()].second;
@@ -394,9 +395,14 @@ void ChannelManager::computeRecent() {
     if (prevMovie.isEmpty()) m_recentMovieNames.clear(); else m_recentMovieNames.subtract(prevMovie);
     m_recentSeriesNames = curSeries;
     if (prevSeries.isEmpty()) m_recentSeriesNames.clear(); else m_recentSeriesNames.subtract(prevSeries);
-    // Persiste a base atual para a próxima comparação.
-    Settings::instance().saveStringList("seen_movies.json", QStringList(curMovie.begin(), curMovie.end()));
-    Settings::instance().saveStringList("seen_series.json", QStringList(curSeries.begin(), curSeries.end()));
+    // Persiste a base atual DEPOIS da UI pintar (tira a gravação de ~22 mil
+    // nomes do caminho crítico — o conteúdo aparece mais rápido após recarregar).
+    const QStringList saveM(curMovie.begin(), curMovie.end());
+    const QStringList saveS(curSeries.begin(), curSeries.end());
+    QTimer::singleShot(0, this, [saveM, saveS]{
+        Settings::instance().saveStringList("seen_movies.json", saveM);
+        Settings::instance().saveStringList("seen_series.json", saveS);
+    });
 }
 
 QVariantList ChannelManager::recentMovies(int limit) const {
@@ -533,9 +539,8 @@ bool ChannelManager::checkPin(const QString& pin) const {
 }
 
 void ChannelManager::refreshParentalModels() {
-    rebuildCategories(QStringLiteral("live"),   m_catModel);
-    rebuildCategories(QStringLiteral("movie"),  m_movieCatModel);
-    rebuildCategories(QStringLiteral("series"), m_seriesCatModel);
+    // Categorias não são mais ocultadas — basta notificar a UI para reavaliar
+    // o estado de cadeado (isCategoryLocked) de cada categoria.
     emit parentalChanged();
 }
 
@@ -556,6 +561,15 @@ bool ChannelManager::clearPin(const QString& pin) {
     Settings::instance().sync();
     refreshParentalModels();
     return true;
+}
+
+void ChannelManager::resetPin() {
+    // Recuperação (esqueci o PIN): a verificação da identidade é feita na UI
+    // (senha da conta) antes de chamar aqui.
+    m_pin.clear();
+    Settings::instance().set("parental/pin", QString());
+    Settings::instance().sync();
+    refreshParentalModels();
 }
 
 void ChannelManager::setAutoAdult(bool on) {

@@ -25,13 +25,11 @@ Item {
             root.movieCat = channels.movieCategoriesModel.data(channels.movieCategoriesModel.index(0,0), Qt.UserRole+1)
         if (channels.seriesCategoriesModel.count > 0)
             root.seriesCat = channels.seriesCategoriesModel.data(channels.seriesCategoriesModel.index(0,0), Qt.UserRole+1)
-        if (root.movieCat !== "") {
-            var arr = channels.moviesInCategory(root.movieCat, 1)
-            root.featured = (arr && arr.length > 0) ? arr[0] : null
-        }
         root.recentM = channels.recentMovies(20)
         root.recentS = channels.recentSeries(20)
         root.recentP = channels.recentlyPlayed(20)
+        // Banner em destaque = ÚLTIMO filme adicionado (atualiza a cada recarga).
+        root.featured = (root.recentM && root.recentM.length > 0) ? root.recentM[0] : null
     }
     Component.onCompleted: refreshFeatured()
     Connections {
@@ -115,10 +113,12 @@ Item {
 
                         Logo { markSize: 34; fontSize: 24 }
 
-                        Text {
+                        Rectangle {
                             visible: root.hasFeatured
-                            text: "EM DESTAQUE"
-                            color: Theme.brand; font.pixelSize: 13; font.bold: true; font.letterSpacing: 2
+                            implicitWidth: novoTxt.implicitWidth + 18; height: 24; radius: 4
+                            color: Theme.brand
+                            Text { id: novoTxt; anchors.centerIn: parent; text: "NOVO  ·  RECÉM-ADICIONADO"
+                                color: "white"; font.pixelSize: 11; font.bold: true; font.letterSpacing: 1 }
                         }
                         Text {
                             Layout.fillWidth: true
@@ -167,6 +167,7 @@ Item {
                     title: "Filmes adicionados recentemente"
                     items: root.recentM
                     posterField: "logo"
+                    showNew: true
                     onClickedItem: function(item) { playerOverlay.play(item.id, item.name, item.logo) }
                     onSeeAll: app.navigate("movies")
                 }
@@ -176,6 +177,7 @@ Item {
                     title: "Séries adicionadas recentemente"
                     items: root.recentS
                     posterField: "poster"
+                    showNew: true
                     onClickedItem: function(item) { app.navigate("series") }
                     onSeeAll: app.navigate("series")
                 }
@@ -216,6 +218,7 @@ Item {
         property string title: ""
         property var items: []
         property string posterField: "logo"
+        property bool showNew: false        // exibe etiqueta "NOVO" nos cards
         signal clickedItem(var item)
         signal seeAll()
         spacing: 8
@@ -250,9 +253,18 @@ Item {
                         scale: hpMouse.containsMouse ? 1.06 : 1.0
                         Behavior on scale { NumberAnimation { duration: 120 } }
                         Image { anchors.fill: parent; fillMode: Image.PreserveAspectCrop
-                            asynchronous: true; cache: true
+                            asynchronous: true; cache: true; smooth: true; mipmap: true
                             source: modelData[cr.posterField] ? modelData[cr.posterField] : ""
                             visible: source != "" }
+                        // Etiqueta NOVO (recém-adicionados)
+                        Rectangle {
+                            visible: cr.showNew
+                            anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 7
+                            implicitWidth: novoCard.implicitWidth + 12; height: 20; radius: 4
+                            color: Theme.brand
+                            Text { id: novoCard; anchors.centerIn: parent; text: "NOVO"
+                                color: "white"; font.pixelSize: 9; font.bold: true; font.letterSpacing: 0.5 }
+                        }
                     }
                     Text { width: parent.width; text: modelData.name; color: Theme.textDim
                         font.pixelSize: 12; elide: Text.ElideRight; maximumLineCount: 2

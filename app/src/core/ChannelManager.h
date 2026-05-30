@@ -91,6 +91,7 @@ public:
     // Define/troca o PIN. Se já existe, exige o antigo correto. Retorna sucesso.
     Q_INVOKABLE bool setPin(const QString& oldPin, const QString& newPin);
     Q_INVOKABLE bool clearPin(const QString& pin);
+    Q_INVOKABLE void resetPin();   // recuperação: remove o PIN sem exigir o antigo
     Q_INVOKABLE void setAutoAdult(bool on);
     Q_INVOKABLE void toggleCategoryLock(const QString& name);
     Q_INVOKABLE void unlockSession(const QString& name);     // libera 1 categoria nesta sessão

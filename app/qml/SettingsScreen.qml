@@ -19,9 +19,11 @@ Item {
     // Controle parental
     property bool parentalOpen: false
     property bool parentalAuthed: false
+    property bool parentalRecover: false
     property var  parentalCats: []
     function openParental() {
         root.parentalAuthed = !channels.parentalHasPin
+        root.parentalRecover = false
         root.parentalCats = channels.allCategories()
         root.parentalOpen = true
     }
@@ -201,11 +203,48 @@ Item {
                         topPadding: 12; bottomPadding: 12
                     }
                     Text { id: unlockErr; text: ""; visible: text !== ""; color: Theme.bad; font.pixelSize: 13 }
-                    AppButton {
-                        kind: "primary"; text: "Entrar"
-                        onClicked: {
-                            if (channels.checkPin(unlockPin.text)) { root.parentalAuthed = true; unlockErr.text = ""; unlockPin.text = "" }
-                            else unlockErr.text = "PIN incorreto."
+                    RowLayout {
+                        spacing: 10
+                        AppButton {
+                            kind: "primary"; text: "Entrar"; fontSize: 13
+                            onClicked: {
+                                if (channels.checkPin(unlockPin.text)) { root.parentalAuthed = true; unlockErr.text = ""; unlockPin.text = "" }
+                                else unlockErr.text = "PIN incorreto."
+                            }
+                        }
+                        AppButton {
+                            kind: "ghost"; text: "Esqueci o PIN"; fontSize: 13
+                            onClicked: { root.parentalRecover = true; unlockErr.text = "" }
+                        }
+                    }
+                    // Recuperação: confirma a senha da conta e redefine o PIN.
+                    ColumnLayout {
+                        visible: root.parentalRecover
+                        Layout.fillWidth: true; spacing: 8
+                        Text { Layout.fillWidth: true; wrapMode: Text.WordWrap
+                            text: "Digite a senha da sua conta SwiftIPTV para redefinir o PIN."
+                            color: Theme.subtext; font.pixelSize: 13 }
+                        TextField {
+                            id: recAcc; Layout.preferredWidth: 240
+                            echoMode: TextInput.Password
+                            placeholderText: "Senha da conta"; placeholderTextColor: Theme.subtext
+                            color: Theme.text
+                            background: Rectangle { radius: 10; color: Theme.panel2; border.color: Theme.border }
+                            leftPadding: 14; topPadding: 11; bottomPadding: 11
+                        }
+                        Text { id: recAccErr; text: ""; visible: text !== ""; color: Theme.bad
+                            font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                        AppButton {
+                            kind: "primary"; text: "Redefinir PIN"; fontSize: 13
+                            onClicked: {
+                                var saved = auth.rememberedPassword()
+                                if (saved === "") recAccErr.text = "Senha não disponível. Faça login marcando \"Lembrar senha\"."
+                                else if (recAcc.text === saved) {
+                                    channels.resetPin(); recAcc.text = ""; recAccErr.text = ""
+                                    root.parentalRecover = false; root.parentalAuthed = true
+                                    Window.window.notify("PIN redefinido. Defina um novo abaixo.")
+                                } else recAccErr.text = "Senha da conta incorreta."
+                            }
                         }
                     }
                 }
