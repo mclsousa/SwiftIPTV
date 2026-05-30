@@ -17,6 +17,7 @@ Item {
     property string currentCategory: ""
     property string numberBuffer: ""
     property bool favTick: false
+    property bool epgShown: true   // mostra/oculta o painel de Programação (botão EPG)
     property int epgTick: 0     // incrementado p/ forçar reavaliação do EPG nas linhas
 
     readonly property bool isFullscreen: Window.window && Window.window.visibility === Window.FullScreen
@@ -85,6 +86,7 @@ Item {
             Layout.fillWidth: true
             visible: !root.isFullscreen
             active: "live"
+            showSearch: false
             onTabClicked: function(key) {
                 if (key === "home")         { mpv.command(["stop"]); app.navigate("home") }
                 else if (key === "movies")  { mpv.command(["stop"]); app.navigate("movies") }
@@ -287,15 +289,15 @@ Item {
                         }
                     }
 
-                    // EPG agora/a seguir
+                    // EPG agora/a seguir (mostrar/ocultar pelo botão de EPG)
                     Text {
-                        visible: !root.isFullscreen && root.epgList.length > 0
+                        visible: !root.isFullscreen && root.epgShown && root.epgList.length > 0
                         text: "Programação"; color: Theme.subtext; font.pixelSize: 12; font.bold: true
                     }
                     ListView {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        visible: !root.isFullscreen
+                        visible: !root.isFullscreen && root.epgShown
                         clip: true
                         model: root.epgList
                         boundsBehavior: Flickable.StopAtBounds
@@ -325,7 +327,10 @@ Item {
                         }
                     }
 
-                    // Botões
+                    // Espaçador: mantém os botões no rodapé quando o EPG está oculto.
+                    Item { Layout.fillWidth: true; Layout.fillHeight: true; visible: !root.epgShown && !root.isFullscreen }
+
+                    // Botões (apenas ícones)
                     RowLayout {
                         Layout.fillWidth: true
                         visible: !root.isFullscreen
@@ -334,21 +339,20 @@ Item {
                         AppButton {
                             kind: "secondary"
                             enabled: player.currentId !== ""
-                            text: (root.favTick, player.currentId && channels.isFavorite(player.currentId))
-                                  ? "Remover dos Favoritos" : "Adicionar aos Favoritos"
+                            iconSource: (root.favTick, player.currentId && channels.isFavorite(player.currentId))
+                                        ? "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/star_filled.svg"
+                                        : "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/star.svg"
                             onClicked: { channels.toggleFavorite(player.currentId); root.favTick = !root.favTick }
                         }
                         AppButton {
                             kind: "secondary"
-                            iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/search.svg"
-                            text: "Procurar"
-                            onClicked: topNav.focusSearch()
+                            iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/epg.svg"
+                            onClicked: root.epgShown = !root.epgShown
                         }
                         AppButton {
-                            kind: "primary"
-                            iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/fullscreen.svg"
-                            text: "Tela cheia"
+                            kind: "secondary"
                             enabled: player.currentId !== ""
+                            iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/fullscreen.svg"
                             onClicked: root.toggleFullscreen()
                         }
                     }

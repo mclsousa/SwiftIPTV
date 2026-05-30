@@ -19,7 +19,8 @@ Rectangle {
     readonly property color fg: kind === "primary" ? Theme.btnPrimaryText : Theme.text
 
     implicitHeight: 46
-    implicitWidth: row.implicitWidth + (kind === "ghost" ? 22 : 40)
+    // Texto vazio => botão só-ícone (quadrado).
+    implicitWidth: text === "" ? implicitHeight : row.implicitWidth + (kind === "ghost" ? 22 : 40)
     radius: 6                                  // cantos bem menores
     opacity: btn.enabled ? 1.0 : 0.45
     scale: m.pressed ? 0.97 : 1.0
@@ -42,6 +43,7 @@ Rectangle {
             sourceSize.width: 18; sourceSize.height: 18; smooth: true
         }
         Text {
+            visible: btn.text !== ""
             text: btn.text
             color: btn.kind === "ghost" && !m.containsMouse ? Theme.subtext : btn.fg
             font.pixelSize: btn.fontSize; font.bold: true

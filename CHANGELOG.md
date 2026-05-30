@@ -9,6 +9,15 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.33 - 2026-05-30
+**TV ao Vivo: botões só de ícone, busca removida e botão de EPG.**
+- Botões da TV ao Vivo agora são **apenas ícones** (sem texto): Favoritos
+  (estrela, fica roxa quando favoritado), **EPG** (mostra/oculta a Programação)
+  e Tela cheia. Ícones SVG (sem emoji).
+- **Barra de busca removida** da TV ao Vivo (e o botão "Procurar"); a navegação
+  é por categorias.
+- `AppButton` agora suporta modo **só-ícone** (botão quadrado).
+
 ## v1.32 - 2026-05-30
 **Carrossel "Lançamentos" com a etiqueta NOVO.**
 - Nova fileira **"Lançamentos"** na Home (categoria de lançamentos do provedor),
