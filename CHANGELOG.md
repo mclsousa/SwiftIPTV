@@ -9,6 +9,20 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.26 - 2026-05-29
+**Polimento visual: logo nova, TV ao Vivo mais bonita, hero com destaque.**
+
+### App Windows — `app/`
+- **Logo refeita** (3ª iteração): agora um **raio** (lightning) com gradiente
+  roxo/índigo — remete a "Swift" (velocidade), sem a "caixinha" anterior.
+- **TV ao Vivo** mais bonita: canais sem logo deixam de mostrar um quadrado
+  cinza vazio — exibem um ícone de TV elegante; logos com borda arredondada;
+  estado "Selecione um canal" agora tem ícone; linhas mais premium.
+- **Home com hero de destaque** (estilo streaming): o primeiro filme aparece
+  como **destaque** (pôster + "Reproduzir") e toca direto da Home; os
+  carrosséis de Filmes tocam no clique; Séries levam à seção.
+- Player mpv **intocado**.
+
 ## v1.25 - 2026-05-29
 **Salto visual: interface cinematográfica com animações.** Foco em
 modernidade, profundidade e movimento.

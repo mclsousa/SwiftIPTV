@@ -152,12 +152,21 @@ Item {
                                 font.pixelSize: 13; Layout.preferredWidth: 38
                             }
                             Rectangle {
-                                width: 40; height: 40; radius: 6; color: Theme.panel2; clip: true
+                                width: 44; height: 44; radius: 10
+                                color: Theme.panel2; border.color: Theme.border; border.width: 1
+                                clip: true
                                 Image {
-                                    anchors.fill: parent; anchors.margins: 2; fillMode: Image.PreserveAspectFit
+                                    anchors.fill: parent; anchors.margins: 4; fillMode: Image.PreserveAspectFit
                                     asynchronous: true; cache: true
                                     source: chRow.logoLocal ? chRow.logoLocal : ""
                                     visible: source != ""
+                                }
+                                // Fallback elegante quando o canal não tem logo
+                                Image {
+                                    anchors.centerIn: parent
+                                    visible: !chRow.logoLocal
+                                    source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/tv.svg"
+                                    sourceSize.width: 20; sourceSize.height: 20; opacity: 0.40
                                 }
                             }
                             ColumnLayout {
@@ -220,10 +229,19 @@ Item {
                             Component.onCompleted: player.attach(mpv)
                             onVideoDoubleClicked: root.toggleFullscreen()
                         }
-                        Text {
+                        Column {
                             anchors.centerIn: parent
                             visible: !player.currentId || player.currentId === ""
-                            text: "Selecione um canal"; color: "#a0a8b8"; font.pixelSize: 18
+                            spacing: 12
+                            Image {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/tv.svg"
+                                sourceSize.width: 56; sourceSize.height: 56; opacity: 0.5
+                            }
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "Selecione um canal"; color: "#a0a8b8"; font.pixelSize: 17
+                            }
                         }
                         Text {
                             anchors.centerIn: parent
