@@ -83,9 +83,10 @@ private:
     void step(int idx);                 // pipeline sequencial
     void bump(int p);
     void getJson(const QString& url, std::function<void(const QJsonDocument&, bool)> cb, int timeoutMs = 6000);
-    void measureLatency(std::function<void()> done);
+    // Latência/jitter/perda REAIS via 'ping' do SO (ICMP, sem admin).
+    void measurePing(std::function<void()> done);
+    // Download via VÁRIAS conexões paralelas (satura o link; preciso).
     void measureSpeed(std::function<void()> done);
-    void measurePacketLoss(std::function<void()> done);
     void testDns(std::function<void()> done);
     void testIptv(std::function<void()> done);
     void detectVpn();

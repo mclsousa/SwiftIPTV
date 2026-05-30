@@ -173,13 +173,17 @@ Item {
         }
     }
 
-    ScrollView {
+    Flickable {
         anchors.top: header.bottom; anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
         anchors.margins: 16
-        contentWidth: availableWidth
         clip: true
+        contentWidth: width
+        contentHeight: diagCol.implicitHeight
+        boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar { }
 
         ColumnLayout {
+            id: diagCol
             width: parent.width
             spacing: 16
 

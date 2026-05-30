@@ -9,6 +9,20 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.43 - 2026-05-30
+**Diagnóstico de Rede agora mede de verdade (preciso).**
+- **Latência, jitter e perda de pacotes via `ping` do sistema (ICMP real):** antes
+  eram estimados por requisições HTTPS (incluíam handshake TLS → latência inflada;
+  "perda" era taxa de falha de request, não perda real). Agora dispara 10 echos ICMP
+  e lê os tempos reais — latência ~ ping, jitter pela variação entre echos e perda
+  pelos pacotes não respondidos. Parse robusto a idioma (PT/EN).
+- **Velocidade de download com 4 conexões paralelas:** um único stream TCP não
+  satura links rápidos (subestimava muito). Agora soma a vazão de vários streams,
+  como o fast.com/speedtest — bem mais próximo do plano contratado.
+- **Geolocalização via ip-api.com** (cidade/ISP mais precisos), com fallback.
+- **Histórico volta a caber:** a página do diagnóstico passou a usar rolagem
+  confiável (Flickable) — o histórico aparece em janela normal, não só em tela cheia.
+
 ## v1.42 - 2026-05-30
 **Otimizar conexão enxuto + Diagnóstico de Rede repaginado (jitter, termômetros, gráficos, saúde p/ assistir).**
 - **Otimizar sua conexão:** removida a estrela "Recomendado", removido o
