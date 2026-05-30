@@ -9,6 +9,13 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.35 - 2026-05-30
+**Botões do player no estilo de referência.**
+- Os botões da barra de controles do player (anterior, ±10s, play/pause,
+  próximo, áudio, legenda, tela cheia, parar) agora são **quadrados arredondados
+  escuros sólidos** com ícone branco (antes eram círculos transparentes que só
+  apareciam no hover), conforme o estilo da referência enviada.
+
 ## v1.34 - 2026-05-30
 **Corrige filme tocando em segundo plano + limpeza da Home.**
 - **Filmes/Séries param de verdade ao Voltar**: novo `StreamPlayer.stop()` que
