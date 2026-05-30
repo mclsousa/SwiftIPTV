@@ -169,6 +169,19 @@ void MpvObject::initializeMpv(QWindow* parentWindow) {
     mpv_set_option_string(m_mpv, "gpu-api", "d3d11");
     mpv_set_option_string(m_mpv, "gpu-context", "d3d11");
 
+    // PRÉ-AQUECIMENTO DO CONTEXTO GPU (corrige a TELA BRANCA no 1º canal).
+    // Sem isto, o mpv só criava o device + swapchain D3D11 no PRIMEIRO frame do
+    // PRIMEIRO canal. Como o BLACK_BRUSH da janela só cobre pintura GDI (não a
+    // swapchain DXGI), enquanto o driver criava o device pela 1ª vez — disputando
+    // a GPU com o próprio D3D11 do Qt — a swapchain exibia o back-buffer não
+    // inicializado (branco) e a thread de render do Qt engasgava. force-window
+    // cria o VO/contexto JÁ no mpv_initialize (custo único, no load da tela, com
+    // o fundo preto do mpv ocioso). Nos canais seguintes o device é reutilizado.
+    // (Não mexe em decoder/scaler/hwdec/qualidade — só no ciclo de vida do VO.)
+    mpv_set_option_string(m_mpv, "force-window", "yes");
+    mpv_set_option_string(m_mpv, "idle", "yes");
+    mpv_set_option_string(m_mpv, "background", "#000000");
+
     // wid: HWND filho onde o mpv vai apresentar.
 #ifdef _WIN32
     if (m_videoHwnd) {

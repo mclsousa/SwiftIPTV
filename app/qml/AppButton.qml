@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import SwiftIPTV
 
@@ -14,6 +15,8 @@ Rectangle {
     property string iconSource: ""
     property string kind: "primary"
     property int fontSize: 14
+    property int iconSize: 18
+    property string tooltip: ""    // dica ao passar o mouse (útil em botões só-ícone)
     signal clicked()
 
     readonly property color fg: kind === "primary" ? Theme.btnPrimaryText : Theme.text
@@ -40,7 +43,7 @@ Rectangle {
         Image {
             visible: btn.iconSource !== ""
             source: btn.iconSource
-            sourceSize.width: 18; sourceSize.height: 18; smooth: true
+            sourceSize.width: btn.iconSize; sourceSize.height: btn.iconSize; smooth: true
         }
         Text {
             visible: btn.text !== ""
@@ -56,4 +59,8 @@ Rectangle {
         cursorShape: btn.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
         onClicked: if (btn.enabled) btn.clicked()
     }
+
+    ToolTip.visible: btn.tooltip !== "" && m.containsMouse
+    ToolTip.text: btn.tooltip
+    ToolTip.delay: 400
 }

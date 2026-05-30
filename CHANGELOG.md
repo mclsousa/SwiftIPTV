@@ -9,6 +9,20 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.38 - 2026-05-30
+**Corrige a tela branca no 1º canal (pré-aquece o GPU) + ícones novos.**
+- **Tela branca no primeiro canal corrigida (causa raiz mais funda):** o mpv só
+  criava o device/swapchain **D3D11 no primeiro frame do primeiro canal**. Como o
+  fundo preto da janela (BLACK_BRUSH) só cobre pintura GDI — e não a swapchain
+  DXGI — enquanto o driver criava esse device pela 1ª vez (disputando a GPU com o
+  D3D11 do próprio Qt), aparecia o branco. Agora o contexto GPU é **pré-aquecido
+  na inicialização** (`force-window`): o custo único acontece ao carregar a tela
+  (fundo preto do mpv ocioso), não ao abrir o canal. (Não mexe em decoder/scaler/
+  hwdec/qualidade — só no ciclo de vida da saída de vídeo.)
+- **Ícones novos, profissionais** (estilo linha moderno, traço uniforme) nos
+  botões da TV ao Vivo: favoritos (estrela), EPG (guia) e tela cheia — voltando a
+  ser só-ícone, com **dica (tooltip)** mostrando o nome ao passar o mouse.
+
 ## v1.37 - 2026-05-30
 **Corrige travamento ao abrir canal, aba Favoritos, EPG à esquerda e botões ghost.**
 - **Travamento ao abrir canal corrigido (causa raiz):** `channelById` fazia uma

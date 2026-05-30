@@ -374,29 +374,34 @@ Item {
                         }
                     }
 
-                    // Botões com NOME (estilo ghost: viram botão no hover)
+                    // Botões só-ícone (estilo ghost: viram botão no hover; tooltip com o nome)
                     RowLayout {
                         Layout.fillWidth: true
                         visible: !root.isFullscreen
                         spacing: 4
                         Item { Layout.fillWidth: true }
                         AppButton {
-                            kind: "ghost"
+                            kind: "ghost"; iconSize: 22
                             enabled: player.currentId !== ""
-                            text: (root.favTick, player.currentId && channels.isFavorite(player.currentId))
-                                  ? "Nos favoritos" : "Favoritos"
+                            tooltip: (root.favTick, player.currentId && channels.isFavorite(player.currentId))
+                                     ? "Remover dos favoritos" : "Adicionar aos favoritos"
+                            iconSource: (root.favTick, player.currentId && channels.isFavorite(player.currentId))
+                                        ? "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/star_filled.svg"
+                                        : "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/star.svg"
                             onClicked: { channels.toggleFavorite(player.currentId); root.favTick = !root.favTick }
                         }
                         AppButton {
-                            kind: "ghost"
+                            kind: "ghost"; iconSize: 22
                             enabled: player.currentId !== ""
-                            text: "EPG"
+                            tooltip: "Guia de programação (EPG)"
+                            iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/epg.svg"
                             onClicked: root.openFullEpg()
                         }
                         AppButton {
-                            kind: "ghost"
+                            kind: "ghost"; iconSize: 22
                             enabled: player.currentId !== ""
-                            text: "Tela cheia"
+                            tooltip: "Tela cheia"
+                            iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/fullscreen.svg"
                             onClicked: root.toggleFullscreen()
                         }
                     }
