@@ -17,8 +17,15 @@ Item {
     property string currentCategory: ""
     property string numberBuffer: ""
     property bool favTick: false
-    property bool epgShown: true   // mostra/oculta o painel de Programação (botão EPG)
     property int epgTick: 0     // incrementado p/ forçar reavaliação do EPG nas linhas
+    // Guia completo (botão EPG)
+    property bool epgFullOpen: false
+    property var  epgFullList: []
+    function openFullEpg() {
+        var key = player.currentTvgId ? player.currentTvgId : player.currentId
+        root.epgFullList = key ? epg.upcoming(key, 200) : []
+        root.epgFullOpen = true
+    }
 
     readonly property bool isFullscreen: Window.window && Window.window.visibility === Window.FullScreen
     function toggleFullscreen() {
@@ -86,7 +93,6 @@ Item {
             Layout.fillWidth: true
             visible: !root.isFullscreen
             active: "live"
-            showSearch: false
             onTabClicked: function(key) {
                 if (key === "home")         { mpv.command(["stop"]); app.navigate("home") }
                 else if (key === "movies")  { mpv.command(["stop"]); app.navigate("movies") }
@@ -289,15 +295,15 @@ Item {
                         }
                     }
 
-                    // EPG agora/a seguir (mostrar/ocultar pelo botão de EPG)
+                    // EPG agora/a seguir (o botão EPG abre o guia completo)
                     Text {
-                        visible: !root.isFullscreen && root.epgShown && root.epgList.length > 0
+                        visible: !root.isFullscreen && root.epgList.length > 0
                         text: "Programação"; color: Theme.subtext; font.pixelSize: 12; font.bold: true
                     }
                     ListView {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        visible: !root.isFullscreen && root.epgShown
+                        visible: !root.isFullscreen
                         clip: true
                         model: root.epgList
                         boundsBehavior: Flickable.StopAtBounds
@@ -327,17 +333,14 @@ Item {
                         }
                     }
 
-                    // Espaçador: mantém os botões no rodapé quando o EPG está oculto.
-                    Item { Layout.fillWidth: true; Layout.fillHeight: true; visible: !root.epgShown && !root.isFullscreen }
-
-                    // Botões (apenas ícones)
+                    // Botões (apenas ícones, estilo ghost: viram botão no hover)
                     RowLayout {
                         Layout.fillWidth: true
                         visible: !root.isFullscreen
-                        spacing: 10
+                        spacing: 6
                         Item { Layout.fillWidth: true }
                         AppButton {
-                            kind: "secondary"
+                            kind: "ghost"
                             enabled: player.currentId !== ""
                             iconSource: (root.favTick, player.currentId && channels.isFavorite(player.currentId))
                                         ? "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/star_filled.svg"
@@ -345,12 +348,13 @@ Item {
                             onClicked: { channels.toggleFavorite(player.currentId); root.favTick = !root.favTick }
                         }
                         AppButton {
-                            kind: "secondary"
+                            kind: "ghost"
+                            enabled: player.currentId !== ""
                             iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/epg.svg"
-                            onClicked: root.epgShown = !root.epgShown
+                            onClicked: root.openFullEpg()
                         }
                         AppButton {
-                            kind: "secondary"
+                            kind: "ghost"
                             enabled: player.currentId !== ""
                             iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/fullscreen.svg"
                             onClicked: root.toggleFullscreen()
@@ -369,4 +373,66 @@ Item {
     }
 
     PinDialog { id: pinDialog; onUnlocked: root.setCategory(pinDialog.category) }
+
+    // ----- Guia completo de EPG do canal atual -----
+    Rectangle {
+        anchors.fill: parent
+        visible: root.epgFullOpen
+        z: 150
+        color: "#cc000000"
+        MouseArea { anchors.fill: parent; onClicked: root.epgFullOpen = false }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 120, 640)
+            height: Math.min(parent.height - 120, 620)
+            radius: 16; color: Theme.panel; border.color: Theme.border
+            MouseArea { anchors.fill: parent }   // não fecha ao clicar dentro
+
+            ColumnLayout {
+                anchors.fill: parent; anchors.margins: 22; spacing: 12
+                RowLayout {
+                    Layout.fillWidth: true; spacing: 10
+                    Image { source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/epg.svg"
+                        sourceSize.width: 22; sourceSize.height: 22 }
+                    ColumnLayout {
+                        Layout.fillWidth: true; spacing: 0
+                        Text { text: "Guia de programação"; color: Theme.text; font.pixelSize: 18; font.bold: true }
+                        Text { text: player.currentName ? player.currentName : ""
+                            color: Theme.subtext; font.pixelSize: 13; elide: Text.ElideRight; Layout.fillWidth: true }
+                    }
+                    Rectangle {
+                        width: 34; height: 34; radius: 17
+                        color: epgX.containsMouse ? Theme.panel2 : "transparent"
+                        Text { anchors.centerIn: parent; text: "×"; color: Theme.text; font.pixelSize: 22 }
+                        MouseArea { id: epgX; anchors.fill: parent; hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor; onClicked: root.epgFullOpen = false }
+                    }
+                }
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+                ListView {
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    clip: true; model: root.epgFullList; spacing: 2
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.vertical: ScrollBar { }
+                    delegate: Rectangle {
+                        required property var modelData
+                        width: ListView.view.width; height: 46; radius: 6
+                        color: modelData.current ? Theme.brandSoft : "transparent"
+                        RowLayout {
+                            anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 14
+                            Text { text: modelData.times
+                                color: modelData.current ? Theme.brand : Theme.subtext
+                                font.pixelSize: 13; font.bold: modelData.current; Layout.preferredWidth: 140 }
+                            Text { Layout.fillWidth: true; text: modelData.title
+                                color: modelData.current ? Theme.text : Theme.textDim
+                                font.pixelSize: 14; font.bold: modelData.current; elide: Text.ElideRight }
+                        }
+                    }
+                    Text { anchors.centerIn: parent; visible: root.epgFullList.length === 0
+                        text: "Sem guia disponível para este canal."; color: Theme.subtext; font.pixelSize: 14 }
+                }
+            }
+        }
+    }
 }

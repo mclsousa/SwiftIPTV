@@ -9,6 +9,19 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.36 - 2026-05-30
+**Corrige tela branca/travamento ao abrir canal + ajustes da TV ao Vivo.**
+- **Fundo "aurora" agora é estático** (sem animação): a animação contínua mantinha
+  a GPU ocupada o tempo todo e, em placas integradas, **travava o vídeo ao abrir
+  o canal** (tela branca / "Carregando" preso). Estático libera a GPU para o
+  player — abre mais rápido e sem travar.
+- **Botões da TV ao Vivo** (Favoritos / EPG / Tela cheia) agora são *ghost*
+  (só ícone; viram botão ao passar o mouse), no mesmo estilo do "Ver todas as
+  categorias".
+- **Barra de busca restaurada** no topo da TV ao Vivo.
+- **Botão EPG abre o guia completo** do canal (lista de toda a programação),
+  além do painel agora/a seguir que continua embaixo do vídeo.
+
 ## v1.35 - 2026-05-30
 **Botões do player no estilo de referência.**
 - Os botões da barra de controles do player (anterior, ±10s, play/pause,
