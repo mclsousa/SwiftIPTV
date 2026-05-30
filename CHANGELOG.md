@@ -9,6 +9,11 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.41 - 2026-05-30
+**Remove a moldura do pôster no banner da Home.**
+- Tirado o halo/borda em volta da capa do filme em destaque (sem desfoque, virava
+  uma moldura dura feia). O pôster fica limpo, só com cantos arredondados.
+
 ## v1.40 - 2026-05-30
 **Indicador "tocando agora" na lista + banner da Home rotativo (Lançamentos).**
 - **Indicador de reprodução na TV ao Vivo:** o canal que está tocando agora mostra

@@ -169,16 +169,10 @@ Item {
                         SequentialAnimation on scale { loops: Animation.Infinite
                             NumberAnimation { to: 1.025; duration: 3400; easing.type: Easing.InOutSine }
                             NumberAnimation { to: 1.0;   duration: 3400; easing.type: Easing.InOutSine } }
-                        // halo suave atrás do card
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: parent.width + 40; height: parent.height + 40; radius: 28
-                            color: Theme.brand; opacity: 0.20
-                        }
+                        // Pôster limpo (sem moldura/halo — só cantos arredondados)
                         Rectangle {
                             anchors.fill: parent; radius: 16
                             color: Theme.panel; clip: true
-                            border.color: Qt.rgba(1, 1, 1, 0.12); border.width: 1
                             Image {
                                 anchors.fill: parent; fillMode: Image.PreserveAspectCrop
                                 asynchronous: true; cache: true; smooth: true; mipmap: true
