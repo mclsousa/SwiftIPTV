@@ -3,8 +3,8 @@
 #include <QString>
 #include <QRect>
 
-// Versão do app — acompanha a tag de release (v1.39). Exibida nas Configurações.
-#define SWIFTIPTV_APP_VERSION "1.39"
+// Versão do app — acompanha a tag de release (v1.40). Exibida nas Configurações.
+#define SWIFTIPTV_APP_VERSION "1.40"
 
 // Coordenador de navegação e da janela principal. O QML (Main.qml) observa
 // `screen` para trocar de tela e persiste a geometria via saveWindow().

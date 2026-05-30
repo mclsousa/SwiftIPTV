@@ -15,12 +15,43 @@ Item {
 
     property string movieCat: ""
     property string seriesCat: ""
-    property var    featured: null
     property var    recentM: []
     property var    recentS: []
     property var    recentP: []   // continuar assistindo
     property var    launchM: []   // lançamentos (categoria do provedor)
     property string launchCat: ""
+
+    // HERO rotativo: passa pelos filmes de Lançamentos (ou recém-adicionados).
+    property var    heroItems: []
+    property int    heroIndex: 0
+    property real   heroAlpha: 1     // animado no crossfade da troca
+    readonly property bool heroRotates: root.heroItems.length > 1
+    readonly property var featured: (root.heroItems && root.heroIndex >= 0
+                                     && root.heroIndex < root.heroItems.length)
+                                    ? root.heroItems[root.heroIndex] : null
+
+    function goHero(idx) {
+        if (root.heroItems.length === 0) return
+        var n = ((idx % root.heroItems.length) + root.heroItems.length) % root.heroItems.length
+        if (n === root.heroIndex) return
+        heroFade.to = n
+        heroFade.restart()
+    }
+
+    // Troca automática a cada ~7s (pausa enquanto um título está em reprodução).
+    Timer {
+        interval: 7000; repeat: true
+        running: root.heroRotates && !playerOverlay.active
+        onTriggered: root.goHero(root.heroIndex + 1)
+    }
+    // Crossfade: esmaece -> troca o índice -> reaparece.
+    SequentialAnimation {
+        id: heroFade
+        property int to: 0
+        NumberAnimation { target: root; property: "heroAlpha"; to: 0; duration: 320; easing.type: Easing.InOutQuad }
+        ScriptAction { script: root.heroIndex = heroFade.to }
+        NumberAnimation { target: root; property: "heroAlpha"; to: 1; duration: 460; easing.type: Easing.InOutQuad }
+    }
 
     function refreshFeatured() {
         if (channels.movieCategoriesModel.count > 0)
@@ -32,8 +63,11 @@ Item {
         root.recentP = channels.recentlyPlayed(20)
         root.launchM = channels.launchMovies(20)
         root.launchCat = channels.launchCategoryName()
-        // Banner em destaque = ÚLTIMO filme adicionado (atualiza a cada recarga).
-        root.featured = (root.recentM && root.recentM.length > 0) ? root.recentM[0] : null
+        // Banner passa pelos LANÇAMENTOS (fallback: recém-adicionados). Limita a
+        // 8 pra rotação não ficar longa demais.
+        var src = (root.launchM && root.launchM.length > 0) ? root.launchM : root.recentM
+        root.heroItems = src ? src.slice(0, 8) : []
+        root.heroIndex = 0
     }
     Component.onCompleted: refreshFeatured()
     Connections {
@@ -93,7 +127,7 @@ Item {
                             verticalAlignment: Image.AlignTop
                             asynchronous: true; cache: true; smooth: true; mipmap: true
                             source: root.hasFeatured && root.featured.logo ? root.featured.logo : ""
-                            opacity: 0.55
+                            opacity: 0.55 * root.heroAlpha   // crossfade da rotação
                         }
                         // Scrim horizontal: esquerda sólida (texto legível) -> direita revela a arte
                         Rectangle {
@@ -127,6 +161,7 @@ Item {
                     // 2) Poster NÍTIDO em destaque (direita), com halo/elevação
                     Item {
                         visible: root.hasFeatured
+                        opacity: root.heroAlpha
                         anchors.right: parent.right; anchors.rightMargin: 80
                         anchors.verticalCenter: parent.verticalCenter
                         width: 248; height: 366
@@ -164,10 +199,11 @@ Item {
                         RowLayout {
                             spacing: 10
                             visible: root.hasFeatured
+                            opacity: root.heroAlpha
                             Rectangle {
                                 implicitWidth: novoTxt.implicitWidth + 18; height: 24; radius: 4
                                 color: Theme.brand
-                                Text { id: novoTxt; anchors.centerIn: parent; text: "EM DESTAQUE"
+                                Text { id: novoTxt; anchors.centerIn: parent; text: "LANÇAMENTO"
                                     color: "white"; font.pixelSize: 11; font.bold: true; font.letterSpacing: 1 }
                             }
                             Text {
@@ -177,6 +213,7 @@ Item {
                         }
                         Text {
                             Layout.fillWidth: true
+                            opacity: root.hasFeatured ? root.heroAlpha : 1
                             text: root.hasFeatured ? root.featured.name
                                   : "Tudo o que você quer assistir,\nnum só lugar."
                             color: Theme.text; font.pixelSize: root.hasFeatured ? 42 : 36
@@ -186,6 +223,7 @@ Item {
                         }
                         Text {
                             Layout.fillWidth: true
+                            opacity: root.hasFeatured ? root.heroAlpha : 1
                             text: root.hasFeatured
                                   ? "Adicionado recentemente ao seu catálogo. Aperte play e comece a assistir."
                                   : "Canais ao vivo, filmes e séries em alta qualidade."
@@ -208,6 +246,27 @@ Item {
                                 kind: "secondary"; fontSize: 15
                                 text: "Explorar Filmes"
                                 onClicked: app.navigate("movies")
+                            }
+                        }
+                    }
+
+                    // Pontos de navegação da rotação (clicáveis)
+                    Row {
+                        visible: root.heroRotates
+                        anchors.bottom: parent.bottom; anchors.bottomMargin: 18
+                        anchors.left: parent.left; anchors.leftMargin: 48
+                        spacing: 7
+                        Repeater {
+                            model: root.heroItems.length
+                            delegate: Rectangle {
+                                required property int index
+                                width: index === root.heroIndex ? 22 : 8
+                                height: 8; radius: 4
+                                color: index === root.heroIndex ? Theme.brand : Qt.rgba(1, 1, 1, 0.30)
+                                Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+                                Behavior on color { ColorAnimation { duration: 200 } }
+                                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                    hoverEnabled: true; onClicked: root.goHero(index) }
                             }
                         }
                     }

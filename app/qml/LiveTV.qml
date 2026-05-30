@@ -240,6 +240,13 @@ Item {
                                     color: Theme.subtext; font.pixelSize: 12; elide: Text.ElideRight
                                 }
                             }
+                            // Indicador "tocando agora" (equalizador) no canal atual
+                            NowPlaying {
+                                Layout.alignment: Qt.AlignVCenter
+                                Layout.preferredWidth: 20
+                                visible: chRow.isCurrent
+                                active: chRow.isCurrent && mpv.playing
+                            }
                         }
                         // Barra de progresso do programa atual
                         Rectangle {
@@ -422,6 +429,36 @@ Item {
     }
 
     PinDialog { id: pinDialog; onUnlocked: root.setCategory(pinDialog.category) }
+
+    // Indicador "tocando agora": barras de equalizador (cor da marca). Animam só
+    // quando 'active' (realmente reproduzindo); paradas viram um padrão estático
+    // baixo. Geometria minúscula de propósito — anima pouquíssimo a GPU.
+    component NowPlaying: Row {
+        id: eq
+        property bool active: true
+        spacing: 2
+        Repeater {
+            model: 4
+            delegate: Item {
+                id: barCell
+                required property int index
+                readonly property int peak: 7 + (index % 3) * 5   // 7,12,17,7 -> equalizador
+                width: 3; height: 18
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    width: parent.width; radius: 1.5; color: Theme.brand
+                    height: barCell.peak * 0.5
+                    SequentialAnimation on height {
+                        running: eq.active; loops: Animation.Infinite
+                        NumberAnimation { to: barCell.peak; duration: 300 + barCell.index * 70
+                            easing.type: Easing.InOutSine }
+                        NumberAnimation { to: 5; duration: 300 + barCell.index * 70
+                            easing.type: Easing.InOutSine }
+                    }
+                }
+            }
+        }
+    }
 
     // ----- Guia completo de EPG do canal atual -----
     Rectangle {

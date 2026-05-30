@@ -9,6 +9,17 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.40 - 2026-05-30
+**Indicador "tocando agora" na lista + banner da Home rotativo (Lançamentos).**
+- **Indicador de reprodução na TV ao Vivo:** o canal que está tocando agora mostra
+  um **equalizador animado** (barras na cor da marca) na linha da lista, deixando
+  claro qual canal está em reprodução. Anima só enquanto realmente reproduz
+  (geometria minúscula — impacto desprezível na GPU).
+- **Banner da Home rotativo:** o destaque agora **passa automaticamente pelos
+  filmes de Lançamentos** (a cada ~7s, com crossfade suave), com **pontos de
+  navegação** clicáveis embaixo. A rotação pausa enquanto um título está em
+  reprodução. (Antes mostrava um único filme fixo.)
+
 ## v1.39 - 2026-05-30
 **Corrige inconsistências do player em VOD + "Carregando" preso em Favoritos + Home renovada.**
 - **Filmes/séries não reiniciam mais ao terminar.** O player é compartilhado com a
