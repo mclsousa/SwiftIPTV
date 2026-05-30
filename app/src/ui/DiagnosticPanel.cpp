@@ -48,23 +48,25 @@ void DiagnosticPanel::buildReport() {
     m_report = QString(
         "===== SwiftIPTV — Relatório de Diagnóstico =====\n"
         "Data: %1\n\n"
-        "[ Saúde geral ]  %2 (%3/100)\n\n"
-        "[ Informações do IP ]\n  IPv4: %4\n  IPv6: %5\n\n"
-        "[ Geolocalização ]\n  Cidade: %6\n  Região: %7\n  País: %8\n  ISP: %9\n  ASN: %10\n\n"
-        "[ Rede ]\n  Tipo: %11\n\n"
-        "[ Latência ]\n  Mínima: %12 ms\n  Média:  %13 ms\n\n"
-        "[ Velocidade ]\n  Download: %14 Mbps\n\n"
-        "[ Perda de Pacotes ]\n  %15 %\n\n"
-        "[ DNS (DoH) ]\n%16\n"
-        "[ Servidores IPTV ]\n%17  Mais rápido: %18\n\n"
-        "[ VPN/Proxy ]\n  %19\n"
+        "[ Saúde geral ]  %2 (%3/100)\n"
+        "[ Para assistir ]  %4\n\n"
+        "[ Informações do IP ]\n  IPv4: %5\n  IPv6: %6\n\n"
+        "[ Geolocalização ]\n  Cidade: %7\n  Região: %8\n  País: %9\n  ISP: %10\n  ASN: %11\n\n"
+        "[ Rede ]\n  Tipo: %12\n\n"
+        "[ Latência ]\n  Mínima: %13 ms\n  Média:  %14 ms\n  Jitter: %15 ms (ideal < 10 ms)\n\n"
+        "[ Velocidade ]\n  Download: %16 Mbps\n\n"
+        "[ Perda de Pacotes ]\n  %17 % (ideal 0%)\n\n"
+        "[ DNS (DoH) ]\n%18\n"
+        "[ Servidores IPTV ]\n%19  Mais rápido: %20\n\n"
+        "[ VPN/Proxy ]\n  %21\n"
         "================================================\n")
         .arg(QDateTime::currentDateTime().toString("dd/MM/yyyy HH:mm:ss"))
         .arg(e->healthLevel()).arg(e->healthScore())
+        .arg(e->streamText())
         .arg(e->ipv4(), e->ipv6())
         .arg(e->geoCity(), e->geoRegion(), e->geoCountry(), e->geoIsp(), e->geoAsn())
         .arg(e->netType())
-        .arg(e->latencyMin(), 0, 'f', 1).arg(e->latencyAvg(), 0, 'f', 1)
+        .arg(e->latencyMin(), 0, 'f', 1).arg(e->latencyAvg(), 0, 'f', 1).arg(e->jitter(), 0, 'f', 1)
         .arg(e->speedMbps(), 0, 'f', 1)
         .arg(e->packetLoss(), 0, 'f', 1)
         .arg(dnsBlock)
@@ -110,7 +112,10 @@ void DiagnosticPanel::appendHistory() {
         {"datetime", QDateTime::currentDateTime().toString("dd/MM/yyyy HH:mm")},
         {"ip", e->ipv4()}, {"city", e->geoCity()}, {"isp", e->geoIsp()},
         {"latency", QString::number(e->latencyAvg(), 'f', 0)},
+        {"jitter", QString::number(e->jitter(), 'f', 0)},
+        {"loss", QString::number(e->packetLoss(), 'f', 1)},
         {"speed", QString::number(e->speedMbps(), 'f', 1)},
+        {"score", e->healthScore()},
         {"health", e->healthLevel()}
     };
 

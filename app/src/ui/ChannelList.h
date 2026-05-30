@@ -17,7 +17,7 @@ class ChannelListModel : public QAbstractListModel {
 public:
     enum Roles {
         IdRole = Qt::UserRole + 1,
-        NameRole, LogoUrlRole, LogoLocalRole, GroupRole, UrlRole, NumberRole, CurrentRole, TypeRole
+        NameRole, LogoUrlRole, LogoLocalRole, GroupRole, UrlRole, NumberRole, CurrentRole, TypeRole, TvgIdRole
     };
 
     explicit ChannelListModel(QObject* parent = nullptr);

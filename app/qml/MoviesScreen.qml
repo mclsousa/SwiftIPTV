@@ -4,181 +4,286 @@ import QtQuick.Layouts
 import QtQuick.Window
 import SwiftIPTV
 
-// Tela de Filmes (VOD) em 3 colunas (mesmo padrão da TV ao Vivo):
-//   categorias (+ "Tudo")  |  lista de filmes  |  player + controles
-// Dá pra navegar/escolher outro filme enquanto um toca.
+// Filmes — estilo Netflix/HBO: barra de topo + fileiras (carrosséis) de pôsteres
+// por categoria. Cada fileira tem "Ver todos" (abre a grade da categoria) e há
+// um botão "Ver todas as categorias" no canto superior direito. Buscar mostra
+// uma grade de resultados. Clicar num pôster abre o player em tela cheia.
 Item {
     id: root
     anchors.fill: parent
-    focus: true
+    opacity: 0
+    NumberAnimation on opacity { from: 0; to: 1; duration: 380; easing.type: Easing.OutCubic }
 
-    property string currentCategory: ""     // "" = Tudo
-    property int    currentRow: -1
+    property string view: "rows"     // "rows" | "grid" | "categories"
+    property string search: ""
+    property string selectedCat: ""
+    property var    catItems: []
+    property var    playQueue: []
+    property int    playIdx: -1
+    property int    lockTick: 0     // reavalia cadeado quando o parental muda
 
-    readonly property bool isFullscreen: Window.window && Window.window.visibility === Window.FullScreen
-    function toggleFullscreen() {
-        var w = Window.window
-        w.visibility = (w.visibility === Window.FullScreen) ? Window.Windowed : Window.FullScreen
+    function openCategory(name) {
+        root.selectedCat = name
+        root.catItems = channels.moviesInCategory(name, 0)
+        root.view = "grid"
+    }
+    function playFromArray(arr, idx) {
+        root.playQueue = arr
+        root.playIdx = idx
+        if (idx >= 0 && idx < arr.length) playerOverlay.play(arr[idx].id, arr[idx].name, arr[idx].logo)
+    }
+    function playStep(d) {
+        var i = root.playIdx + d
+        if (i >= 0 && i < root.playQueue.length) {
+            root.playIdx = i
+            playerOverlay.play(root.playQueue[i].id, root.playQueue[i].name, root.playQueue[i].logo)
+        }
     }
 
-    function setCategory(name) {
-        root.currentCategory = name
-        channels.moviesModel.categoryFilter = name
-        root.currentRow = -1
-    }
-    function playRow(row) {
-        if (row < 0 || row >= channels.moviesModel.count) return
-        root.currentRow = row
-        var it = channels.moviesModel.get(row)
-        if (it && it.channelId) player.playById(it.channelId)
-    }
-
-    Component.onCompleted: { forceActiveFocus(); channels.moviesModel.filter = "" }
     Connections {
         target: channels
         function onError(m) { Window.window.notify(m) }
+        function onParentalChanged() { root.lockTick++ }
     }
-    Keys.onPressed: function(e) {
-        if (e.key === Qt.Key_F11) { toggleFullscreen(); e.accepted = true }
-        else if (e.key === Qt.Key_Escape && root.isFullscreen) { toggleFullscreen(); e.accepted = true }
-    }
+    Shortcut { sequence: "Esc"; enabled: root.view !== "rows" && root.search === "" && !playerOverlay.active
+        onActivated: root.view = "rows" }
 
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
 
-        TopNav {
-            id: topNav
+        TopBar {
+            id: topBar
             Layout.fillWidth: true
-            visible: !root.isFullscreen
             active: "movies"
             onTabClicked: function(key) {
-                vodPlayer.stop()
-                if (key === "home")        app.navigate("home")
-                else if (key === "live")   app.navigate("player")
-                else if (key === "series") app.navigate("series")
+                if (playerOverlay.active) playerOverlay.stop()
+                if (key === "home")           app.navigate("home")
+                else if (key === "live")      app.navigate("player")
+                else if (key === "favorites") app.navigate("favorites")
+                else if (key === "series")    app.navigate("series")
+                else if (key === "profile")   app.navigate("settings")
             }
-            onSearchTextChanged: channels.moviesModel.filter = topNav.searchText
+            onSearchTextChanged: {
+                root.search = topBar.searchText
+                channels.moviesModel.categoryFilter = ""
+                channels.moviesModel.filter = topBar.searchText
+            }
         }
 
+        // Sub-cabeçalho: breadcrumb + "Ver todas as categorias"
         RowLayout {
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            spacing: 0
+            Layout.preferredHeight: 52
+            Layout.leftMargin: 24; Layout.rightMargin: 24
+            visible: root.search === ""
+            spacing: 12
 
-            // Col 1: categorias (+ Tudo)
             Rectangle {
-                Layout.preferredWidth: 300
-                Layout.fillHeight: true
-                visible: !root.isFullscreen
-                color: Theme.bg
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    spacing: 0
-
-                    // Botão "Tudo"
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 46
-                        color: root.currentCategory === "" ? Theme.panel2 : (tudoMouse.containsMouse ? Theme.panel : "transparent")
-                        RowLayout {
-                            anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 14
-                            Text { text: "Tudo"; color: root.currentCategory === "" ? Theme.brand : Theme.text
-                                font.pixelSize: 15; font.bold: root.currentCategory === ""; Layout.fillWidth: true }
-                        }
-                        MouseArea { id: tudoMouse; anchors.fill: parent; hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor; onClicked: root.setCategory("") }
-                    }
-                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
-
-                    CategorySidebar {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        categoryModel: channels.movieCategoriesModel
-                        current: root.currentCategory
-                        onCategorySelected: function(name) { root.setCategory(name) }
-                    }
-                }
+                visible: root.view !== "rows"
+                width: 38; height: 38; radius: 19
+                color: bkMouse.containsMouse ? Theme.panel2 : "transparent"
+                Image { anchors.centerIn: parent
+                    source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/back.svg"
+                    sourceSize.width: 22; sourceSize.height: 22 }
+                MouseArea { id: bkMouse; anchors.fill: parent; hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor; onClicked: root.view = "rows" }
             }
-            Rectangle { width: 1; Layout.fillHeight: true; color: Theme.border; visible: !root.isFullscreen }
-
-            // Col 2: lista de filmes
-            Rectangle {
-                Layout.preferredWidth: 360
-                Layout.fillHeight: true
-                visible: !root.isFullscreen
-                color: Theme.bg
-
-                ListView {
-                    id: movieList
-                    anchors.fill: parent
-                    clip: true
-                    model: channels.moviesModel
-                    cacheBuffer: 400
-                    boundsBehavior: Flickable.StopAtBounds
-                    ScrollBar.vertical: ScrollBar { }
-
-                    delegate: Rectangle {
-                        id: mvRow
-                        required property int index
-                        required property string channelId
-                        required property string name
-                        required property string logoLocal
-                        width: ListView.view.width
-                        height: 64
-                        property bool isCurrent: player.currentId === channelId
-                        color: isCurrent ? Theme.panel2 : (mvMouse.containsMouse ? Theme.panel : "transparent")
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 10
-                            Rectangle {
-                                width: 38; height: 52; radius: 5; color: Theme.panel2; clip: true
-                                Image {
-                                    anchors.fill: parent; fillMode: Image.PreserveAspectCrop
-                                    asynchronous: true; cache: true
-                                    source: mvRow.logoLocal ? mvRow.logoLocal : ""
-                                    visible: source != ""
-                                }
-                            }
-                            Text {
-                                Layout.fillWidth: true
-                                text: mvRow.name
-                                color: mvRow.isCurrent ? Theme.brand : Theme.text
-                                font.pixelSize: 14; font.bold: mvRow.isCurrent
-                                wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight
-                            }
-                        }
-                        MouseArea {
-                            id: mvMouse
-                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: root.playRow(mvRow.index)
-                            onDoubleClicked: { root.playRow(mvRow.index); root.toggleFullscreen() }
-                        }
-                    }
-
-                    Text {
-                        anchors.centerIn: parent
-                        visible: movieList.count === 0
-                        text: channels.moviesModel && channels.moviesModel.filter !== ""
-                              ? "Nenhum resultado." : "Selecione uma categoria"
-                        color: Theme.subtext; font.pixelSize: 14
-                    }
-                }
+            Text {
+                text: root.view === "grid" ? root.selectedCat
+                      : (root.view === "categories" ? "Todas as categorias" : "Filmes")
+                color: Theme.text; font.pixelSize: 22; font.bold: true
             }
-            Rectangle { width: 1; Layout.fillHeight: true; color: Theme.border; visible: !root.isFullscreen }
-
-            // Col 3: player + controles
-            VodPlayerColumn {
-                id: vodPlayer
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                fullscreen: root.isFullscreen
-                onFullscreenRequested: root.toggleFullscreen()
-                onNextRequested: root.playRow(root.currentRow + 1)
-                onPrevRequested: root.playRow(root.currentRow - 1)
+            Item { Layout.fillWidth: true }
+            AppButton {
+                visible: root.view === "rows"
+                kind: "ghost"; fontSize: 13
+                text: "Ver todas as categorias"
+                onClicked: root.view = "categories"
             }
         }
+
+        // ===== Carrosséis =====
+        ListView {
+            id: rows
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.search === "" && root.view === "rows"
+            clip: true
+            model: channels.movieCategoriesModel
+            cacheBuffer: 800
+            spacing: 20
+            bottomMargin: 24
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar { }
+            delegate: Column {
+                id: catRow
+                required property string name
+                // Categorias bloqueadas não exibem o conteúdo nos carrosséis
+                // (ficam acessíveis com cadeado em "Ver todas as categorias").
+                property bool locked: (root.lockTick, channels.isCategoryLocked(name))
+                visible: !locked
+                width: rows.width
+                height: locked ? 0 : implicitHeight
+                spacing: 8
+                RowLayout {
+                    width: rows.width - 56
+                    x: 28
+                    Text { text: catRow.name; color: Theme.text; font.pixelSize: 19; font.bold: true }
+                    Item { Layout.fillWidth: true }
+                    Text {
+                        text: "Ver todos  ›"; color: vtMouse.containsMouse ? Theme.brand : Theme.subtext
+                        font.pixelSize: 13; font.bold: true
+                        MouseArea { id: vtMouse; anchors.fill: parent; hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor; onClicked: root.openCategory(catRow.name) }
+                    }
+                }
+                ListView {
+                    id: rowList
+                    property string categoryName: catRow.name
+                    width: rows.width; height: 232
+                    orientation: ListView.Horizontal
+                    leftMargin: 28; rightMargin: 28; spacing: 14
+                    clip: true; cacheBuffer: 600
+                    boundsBehavior: Flickable.StopAtBounds
+                    model: channels.moviesInCategory(catRow.name, 40)
+                    delegate: PosterCard {
+                        required property var modelData
+                        required property int index
+                        title: modelData.name; poster: modelData.logo
+                        onClicked: root.playFromArray(channels.moviesInCategory(rowList.categoryName, 40), index)
+                    }
+                }
+            }
+            Text { anchors.centerIn: parent; visible: rows.count === 0
+                text: "Carregando filmes..."; color: Theme.subtext; font.pixelSize: 15 }
+        }
+
+        // ===== Grade de uma categoria (Ver todos) =====
+        GridView {
+            id: catGrid
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.search === "" && root.view === "grid"
+            clip: true
+            cellWidth: 168; cellHeight: 250
+            leftMargin: 20; topMargin: 6
+            model: root.catItems
+            cacheBuffer: 800
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar { }
+            delegate: PosterCard {
+                required property var modelData
+                required property int index
+                title: modelData.name; poster: modelData.logo
+                onClicked: root.playFromArray(root.catItems, index)
+            }
+        }
+
+        // ===== Índice de categorias =====
+        GridView {
+            id: catsView
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.search === "" && root.view === "categories"
+            clip: true
+            cellWidth: 256; cellHeight: 84
+            leftMargin: 20; topMargin: 6
+            model: channels.movieCategoriesModel
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar { }
+            delegate: Item {
+                id: catCell
+                required property string name
+                required property int count
+                property bool locked: (root.lockTick, channels.isCategoryLocked(name))
+                width: catsView.cellWidth; height: catsView.cellHeight
+                Rectangle {
+                    anchors.fill: parent; anchors.margins: 6
+                    radius: 12
+                    color: ccMouse.containsMouse ? Theme.panel2 : Theme.panel
+                    border.color: ccMouse.containsMouse ? Theme.brand : Theme.border
+                    RowLayout {
+                        anchors.fill: parent; anchors.margins: 14; spacing: 10
+                        ColumnLayout {
+                            Layout.fillWidth: true; spacing: 2
+                            Text { Layout.fillWidth: true; text: catCell.name; color: Theme.text
+                                font.pixelSize: 15; font.bold: true; elide: Text.ElideRight }
+                            Text { text: catCell.count + " títulos"; color: Theme.subtext; font.pixelSize: 12 }
+                        }
+                        Image {
+                            visible: catCell.locked
+                            source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/lock.svg"
+                            sourceSize.width: 18; sourceSize.height: 18; opacity: 0.85
+                        }
+                    }
+                    MouseArea { id: ccMouse; anchors.fill: parent; hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: catCell.locked ? pinDialog.openFor(catCell.name) : root.openCategory(catCell.name) }
+                }
+            }
+        }
+
+        // ===== Resultados de busca =====
+        GridView {
+            id: results
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.search !== ""
+            clip: true
+            cellWidth: 168; cellHeight: 250
+            leftMargin: 20; topMargin: 6
+            model: channels.moviesModel
+            cacheBuffer: 800
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar { }
+            delegate: PosterCard {
+                required property int index
+                required property string channelId
+                required property string name
+                required property string logoLocal
+                title: name; posterLocal: logoLocal
+                onClicked: { root.playQueue = []; root.playIdx = -1; playerOverlay.play(channelId, name, logoLocal) }
+            }
+            Text { anchors.centerIn: parent; visible: results.count === 0
+                text: "Nenhum resultado."; color: Theme.subtext; font.pixelSize: 15 }
+        }
+    }
+
+    PlayerOverlay {
+        id: playerOverlay
+        onNextRequested: root.playStep(1)
+        onPrevRequested: root.playStep(-1)
+    }
+
+    PinDialog { id: pinDialog; onUnlocked: root.openCategory(pinDialog.category) }
+
+    component PosterCard: Item {
+        id: pc
+        property string title: ""
+        property string poster: ""
+        property string posterLocal: ""
+        signal clicked()
+        width: 140; height: 232
+        Column {
+            anchors.fill: parent; spacing: 6
+            Rectangle {
+                width: parent.width; height: 196; radius: 10; color: Theme.panel; clip: true
+                border.color: pcMouse.containsMouse ? Theme.brand : "transparent"; border.width: 2
+                scale: pcMouse.containsMouse ? 1.05 : 1.0
+                Behavior on scale { NumberAnimation { duration: 110 } }
+                Image { anchors.fill: parent; fillMode: Image.PreserveAspectCrop
+                    asynchronous: true; cache: true
+                    source: pc.posterLocal ? pc.posterLocal : (pc.poster ? pc.poster : ""); visible: source != "" }
+                Image { anchors.centerIn: parent; visible: !pc.posterLocal && !pc.poster
+                    source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/movie.svg"
+                    sourceSize.width: 40; sourceSize.height: 40; opacity: 0.4 }
+            }
+            Text { width: parent.width; text: pc.title; color: Theme.textDim
+                font.pixelSize: 12; elide: Text.ElideRight; maximumLineCount: 2
+                wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter }
+        }
+        MouseArea { id: pcMouse; anchors.fill: parent; hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor; onClicked: pc.clicked() }
     }
 }

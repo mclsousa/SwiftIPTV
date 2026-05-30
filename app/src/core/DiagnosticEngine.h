@@ -15,6 +15,9 @@ class DiagnosticEngine : public QObject {
 
     Q_PROPERTY(int healthScore READ healthScore NOTIFY finishedChanged)
     Q_PROPERTY(QString healthLevel READ healthLevel NOTIFY finishedChanged)
+    // "Saúde da internet para assistir" — veredito específico de streaming.
+    Q_PROPERTY(QString streamLevel READ streamLevel NOTIFY finishedChanged)
+    Q_PROPERTY(QString streamText  READ streamText  NOTIFY finishedChanged)
 
     Q_PROPERTY(QString ipv4 READ ipv4 NOTIFY changed)
     Q_PROPERTY(QString ipv6 READ ipv6 NOTIFY changed)
@@ -26,6 +29,7 @@ class DiagnosticEngine : public QObject {
     Q_PROPERTY(QString netType READ netType NOTIFY changed)
     Q_PROPERTY(double latencyMin READ latencyMin NOTIFY changed)
     Q_PROPERTY(double latencyAvg READ latencyAvg NOTIFY changed)
+    Q_PROPERTY(double jitter READ jitter NOTIFY changed)
     Q_PROPERTY(double speedMbps READ speedMbps NOTIFY changed)
     Q_PROPERTY(double packetLoss READ packetLoss NOTIFY changed)
     Q_PROPERTY(QVariantList dnsResults READ dnsResults NOTIFY changed)
@@ -41,6 +45,8 @@ public:
     int progress() const { return m_progress; }
     int healthScore() const { return m_health; }
     QString healthLevel() const { return m_healthLevel; }
+    QString streamLevel() const { return m_streamLevel; }
+    QString streamText() const { return m_streamText; }
     QString ipv4() const { return m_ipv4; }
     QString ipv6() const { return m_ipv6; }
     QString geoCity() const { return m_city; }
@@ -51,6 +57,7 @@ public:
     QString netType() const { return m_netType; }
     double latencyMin() const { return m_latMin; }
     double latencyAvg() const { return m_latAvg; }
+    double jitter() const { return m_jitter; }
     double speedMbps() const { return m_speed; }
     double packetLoss() const { return m_loss; }
     QVariantList dnsResults() const { return m_dnsResults; }
@@ -76,9 +83,10 @@ private:
     void step(int idx);                 // pipeline sequencial
     void bump(int p);
     void getJson(const QString& url, std::function<void(const QJsonDocument&, bool)> cb, int timeoutMs = 6000);
-    void measureLatency(std::function<void()> done);
+    // Latência/jitter/perda REAIS via 'ping' do SO (ICMP, sem admin).
+    void measurePing(std::function<void()> done);
+    // Download via VÁRIAS conexões paralelas (satura o link; preciso).
     void measureSpeed(std::function<void()> done);
-    void measurePacketLoss(std::function<void()> done);
     void testDns(std::function<void()> done);
     void testIptv(std::function<void()> done);
     void detectVpn();
@@ -91,7 +99,7 @@ private:
     int  m_progress = 0;
 
     QString m_ipv4, m_ipv6, m_city, m_region, m_country, m_isp, m_asn, m_org, m_ipTz, m_netType;
-    double m_latMin = 0, m_latAvg = 0, m_speed = 0, m_loss = 0;
+    double m_latMin = 0, m_latAvg = 0, m_jitter = 0, m_speed = 0, m_loss = 0;
     QVariantList m_dnsResults, m_iptvResults;
     QString m_fastestServer;
     bool m_vpnDetected = false;
@@ -99,4 +107,6 @@ private:
     QString m_vpnText;
     int  m_health = 0;
     QString m_healthLevel = "—";
+    QString m_streamLevel = "—";
+    QString m_streamText;
 };

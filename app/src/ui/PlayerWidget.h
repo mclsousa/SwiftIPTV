@@ -1,6 +1,7 @@
 #pragma once
 #include <QtQuick/QQuickItem>
 #include <QVariant>
+#include <QVariantList>
 #include <QStringList>
 
 #ifdef _WIN32
@@ -51,6 +52,14 @@ public slots:
     void setVolume(int v);
     void togglePause();
     void stop();
+
+    // Faixas de áudio/legenda do arquivo atual (lidas do "track-list" do mpv).
+    // Cada item: { id:int, label:QString, selected:bool }. As legendas incluem
+    // a opção "Desligado" (id 0) no topo. Usado pelos modais do player.
+    QVariantList audioTracks() const;
+    QVariantList subtitleTracks() const;
+    void setAudioTrack(int id);
+    void setSubtitleTrack(int id);   // id<=0 desliga a legenda
 
 signals:
     void pausedChanged();

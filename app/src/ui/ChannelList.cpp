@@ -1,6 +1,16 @@
 #include "ui/ChannelList.h"
 #include "core/NetworkThread.h"
 
+// Normaliza p/ busca: minúsculas + remove acentos ("Ação" -> "acao").
+// Assim "lancamentos" acha "LANÇAMENTOS" e a busca funciona em minúsculo.
+static QString foldText(const QString& s) {
+    const QString d = s.normalized(QString::NormalizationForm_D);
+    QString out; out.reserve(d.size());
+    for (const QChar ch : d)
+        if (ch.category() != QChar::Mark_NonSpacing) out.append(ch.toLower());
+    return out;
+}
+
 ChannelListModel::ChannelListModel(QObject* parent) : QAbstractListModel(parent) {}
 
 int ChannelListModel::rowCount(const QModelIndex& parent) const {
@@ -12,7 +22,7 @@ QHash<int, QByteArray> ChannelListModel::roleNames() const {
     return {
         {IdRole, "channelId"}, {NameRole, "name"}, {LogoUrlRole, "logoUrl"},
         {LogoLocalRole, "logoLocal"}, {GroupRole, "group"}, {UrlRole, "url"},
-        {NumberRole, "number"}, {CurrentRole, "isCurrent"}, {TypeRole, "type"}
+        {NumberRole, "number"}, {CurrentRole, "isCurrent"}, {TypeRole, "type"}, {TvgIdRole, "tvgId"}
     };
 }
 
@@ -28,6 +38,7 @@ QVariant ChannelListModel::data(const QModelIndex& index, int role) const {
         case UrlRole:     return c.url;
         case NumberRole:  return c.number;
         case TypeRole:    return c.type;
+        case TvgIdRole:   return c.tvgId;
         case CurrentRole: return c.id == m_currentId;
         case LogoLocalRole: {
             auto it = m_logoLocal.constFind(c.id);
@@ -56,12 +67,12 @@ void ChannelListModel::setSource(const QVector<Channel>& channels) {
 void ChannelListModel::rebuild() {
     m_visible.clear();
     m_visible.reserve(m_all.size());
-    const QString f = m_filter;
+    const QString f = foldText(m_filter);   // minúsculas + sem acento
     for (int i = 0; i < m_all.size(); ++i) {
         const Channel& c = m_all[i];
         if (!m_typeFilter.isEmpty()     && c.type  != m_typeFilter)     continue;
         if (!m_categoryFilter.isEmpty() && c.group != m_categoryFilter) continue;
-        if (!f.isEmpty() && !c.name.contains(f, Qt::CaseInsensitive))   continue;
+        if (!f.isEmpty() && !foldText(c.name).contains(f))             continue;
         m_visible.push_back(i);
     }
 }

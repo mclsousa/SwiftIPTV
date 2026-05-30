@@ -40,6 +40,10 @@ public slots:
     void next();
     void prev();
     void playNumber(int channelNumber);  // digitar número do canal
+    // Para a reprodução de verdade: envia "stop" ao mpv E limpa o canal atual +
+    // desliga os watchdogs (senão o auto-reload por buffering/EOF religa o vídeo
+    // em segundo plano depois de fechar o player de VOD).
+    void stop();
 
 signals:
     void currentChanged();
@@ -47,6 +51,12 @@ signals:
     void hasErrorChanged();
     void slowStart();   // I-frame demorou > 800ms
     void noChannel();
+    // VOD (filme/episódio) chegou ao fim natural (EOF). NÃO é emitido para
+    // canais ao vivo (esses religam). O player de VOD usa isso pra encerrar.
+    void endReached();
+
+private:
+    bool currentIsLive() const { return m_current.type == QLatin1String("live"); }
 
 private:
     void playChannel(const Channel& c);

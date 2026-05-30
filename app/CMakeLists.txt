@@ -86,13 +86,16 @@ qt_add_qml_module(SwiftIPTV
     QML_FILES
         qml/Theme.qml
         qml/Main.qml
+        qml/Logo.qml
+        qml/AppButton.qml
+        qml/PinDialog.qml
         qml/LoginScreen.qml
         qml/DnsSetup.qml
         qml/HomeScreen.qml
-        qml/TopNav.qml
+        qml/TopBar.qml
         qml/CategorySidebar.qml
         qml/LiveTV.qml
-        qml/VodPlayerColumn.qml
+        qml/PlayerOverlay.qml
         qml/MoviesScreen.qml
         qml/SeriesScreen.qml
         qml/SettingsScreen.qml
@@ -113,6 +116,11 @@ qt_add_qml_module(SwiftIPTV
         resources/icons/mi/trash.svg
         resources/icons/mi/info.svg
         resources/icons/mi/search.svg
+        resources/icons/mi/lock.svg
+        resources/icons/mi/play_dark.svg
+        resources/icons/mi/star.svg
+        resources/icons/mi/star_filled.svg
+        resources/icons/mi/epg.svg
         resources/icons/mi/play.svg
         resources/icons/mi/pause.svg
         resources/icons/mi/stop.svg
@@ -131,9 +139,13 @@ qt_add_qml_module(SwiftIPTV
         resources/icons/tvdig/settingsv2.svg
         resources/icons/tvdig/recarregar.svg
         resources/icons/tvdig/sair.svg
+        resources/logos/logo-swift.svg
         resources/logos/logo-tvdig.png
         resources/logos/logo-tvdig-square.png
         resources/patterns/hexagons.svg
+        resources/bg/blob-violet.svg
+        resources/bg/blob-indigo.svg
+        resources/bg/blob-magenta.svg
 )
 
 # ----------------------------------------------------------------------------

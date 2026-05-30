@@ -9,6 +9,321 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.43 - 2026-05-30
+**Diagnóstico de Rede agora mede de verdade (preciso).**
+- **Latência, jitter e perda de pacotes via `ping` do sistema (ICMP real):** antes
+  eram estimados por requisições HTTPS (incluíam handshake TLS → latência inflada;
+  "perda" era taxa de falha de request, não perda real). Agora dispara 10 echos ICMP
+  e lê os tempos reais — latência ~ ping, jitter pela variação entre echos e perda
+  pelos pacotes não respondidos. Parse robusto a idioma (PT/EN).
+- **Velocidade de download com 4 conexões paralelas:** um único stream TCP não
+  satura links rápidos (subestimava muito). Agora soma a vazão de vários streams,
+  como o fast.com/speedtest — bem mais próximo do plano contratado.
+- **Geolocalização via ip-api.com** (cidade/ISP mais precisos), com fallback.
+- **Histórico volta a caber:** a página do diagnóstico passou a usar rolagem
+  confiável (Flickable) — o histórico aparece em janela normal, não só em tela cheia.
+
+## v1.42 - 2026-05-30
+**Otimizar conexão enxuto + Diagnóstico de Rede repaginado (jitter, termômetros, gráficos, saúde p/ assistir).**
+- **Otimizar sua conexão:** removida a estrela "Recomendado", removido o
+  "Não mostrar novamente" e o botão "Pular" virou **"Voltar"**.
+- **Diagnóstico — dados mais corretos:**
+  - **Velocidade** agora mede os **bytes realmente recebidos** (arquivo de 25 MB) e
+    reporta em **Mbps decimais** (como o provedor anuncia). Antes usava o
+    Content-Length mesmo quando o teste era abortado → valores fantasiosos.
+  - Novo **Jitter** (variação da latência) com ideal **< 10 ms**.
+  - **Saúde** virou uma **nota contínua 0–100** ponderada (velocidade, latência,
+    perda, jitter) em vez de 3 valores fixos.
+- **Saúde da internet para assistir:** painel com veredito (4K / Full HD / HD / SD /
+  instável) com base em velocidade, perda e jitter.
+- **Termômetros (gauges)** para latência, jitter, velocidade e perda do teste atual.
+- **Gráficos comparando os testes** (histórico): barras de Saúde, Velocidade e Latência.
+- **Perda de pacotes** mostra o ideal **0%**.
+- **Histórico** agora fica numa **caixa rolável** (igual ao relatório) — não corta mais
+  na tela; ganhou a coluna de Jitter.
+
+## v1.41 - 2026-05-30
+**Remove a moldura do pôster no banner da Home.**
+- Tirado o halo/borda em volta da capa do filme em destaque (sem desfoque, virava
+  uma moldura dura feia). O pôster fica limpo, só com cantos arredondados.
+
+## v1.40 - 2026-05-30
+**Indicador "tocando agora" na lista + banner da Home rotativo (Lançamentos).**
+- **Indicador de reprodução na TV ao Vivo:** o canal que está tocando agora mostra
+  um **equalizador animado** (barras na cor da marca) na linha da lista, deixando
+  claro qual canal está em reprodução. Anima só enquanto realmente reproduz
+  (geometria minúscula — impacto desprezível na GPU).
+- **Banner da Home rotativo:** o destaque agora **passa automaticamente pelos
+  filmes de Lançamentos** (a cada ~7s, com crossfade suave), com **pontos de
+  navegação** clicáveis embaixo. A rotação pausa enquanto um título está em
+  reprodução. (Antes mostrava um único filme fixo.)
+
+## v1.39 - 2026-05-30
+**Corrige inconsistências do player em VOD + "Carregando" preso em Favoritos + Home renovada.**
+- **Filmes/séries não reiniciam mais ao terminar.** O player é compartilhado com a
+  TV ao Vivo, e a lógica de *religar no fim/stall* (que é certa pra canal ao vivo)
+  estava sendo aplicada a VOD — fazendo o título **voltar ao começo e repetir** no
+  fim, e **reiniciar do zero (perdendo a posição)** num stall de rede. Agora o
+  `StreamPlayer` distingue **ao vivo × VOD**:
+  - VOD no fim natural → **encerra o player** (não repete);
+  - VOD em stall → **não reinicia** (o mpv reconecta sozinho, sem perder posição);
+  - VOD com URL morta → mostra **"Conteúdo indisponível"** (antes ficava "Carregando" eterno);
+  - o histórico de "ao vivo" não é mais poluído com filmes.
+- **Favoritos: fim do "Carregando" preso.** Ao trocar de TV ao Vivo p/ Favoritos, o
+  app dava `stop` cru no mpv sem limpar o canal atual — o overlay "Carregando"
+  ficava preso e o watchdog religava o canal antigo em 6s. Agora usa `stop` real
+  (limpa o canal + desliga o watchdog).
+- **Home com banner cinematográfico.** O destaque deixou de ser só a capa flutuante:
+  agora a arte do título preenche o fundo (recortada e escurecida com gradientes pra
+  leitura), com o pôster nítido em destaque (halo/elevação) e texto mais marcante.
+
+## v1.38 - 2026-05-30
+**Corrige a tela branca no 1º canal (pré-aquece o GPU) + ícones novos.**
+- **Tela branca no primeiro canal corrigida (causa raiz mais funda):** o mpv só
+  criava o device/swapchain **D3D11 no primeiro frame do primeiro canal**. Como o
+  fundo preto da janela (BLACK_BRUSH) só cobre pintura GDI — e não a swapchain
+  DXGI — enquanto o driver criava esse device pela 1ª vez (disputando a GPU com o
+  D3D11 do próprio Qt), aparecia o branco. Agora o contexto GPU é **pré-aquecido
+  na inicialização** (`force-window`): o custo único acontece ao carregar a tela
+  (fundo preto do mpv ocioso), não ao abrir o canal. (Não mexe em decoder/scaler/
+  hwdec/qualidade — só no ciclo de vida da saída de vídeo.)
+- **Ícones novos, profissionais** (estilo linha moderno, traço uniforme) nos
+  botões da TV ao Vivo: favoritos (estrela), EPG (guia) e tela cheia — voltando a
+  ser só-ícone, com **dica (tooltip)** mostrando o nome ao passar o mouse.
+
+## v1.37 - 2026-05-30
+**Corrige travamento ao abrir canal, aba Favoritos, EPG à esquerda e botões ghost.**
+- **Travamento ao abrir canal corrigido (causa raiz):** `channelById` fazia uma
+  varredura linear dos ~147 mil canais a cada clique (multiplicada pelos itens do
+  histórico) — milhões de comparações que **congelavam a UI** e deixavam a tela
+  branca/preta "Carregando". Agora usa um índice id→posição (**O(1)**): abre na hora.
+- **Nova aba "Favoritos"** ao lado de TV ao Vivo: ao tocar em *Favoritos* num canal,
+  ele passa a aparecer nessa aba (mesma tela da TV, sem a barra de categorias).
+- **Botão EPG abre um painel à ESQUERDA** (deslizante), fora da área do vídeo — antes
+  abria centralizado e ficava escondido atrás do canal em reprodução.
+- **Botões da TV ao Vivo com NOME**: "Favoritos", "EPG" e "Tela cheia" (estilo ghost,
+  viram botão ao passar o mouse) em vez de só ícones.
+- **Botões do player de volta ao estilo ghost** (transparente, realça no hover) —
+  revertendo os quadrados sólidos da v1.35. Esse passa a ser o padrão do app.
+- **Busca ignora acentos e maiúsculas/minúsculas**: digitar "lancamentos" encontra
+  "LANÇAMENTOS"; vale para canais, filmes e séries.
+
+## v1.36 - 2026-05-30
+**Corrige tela branca/travamento ao abrir canal + ajustes da TV ao Vivo.**
+- **Fundo "aurora" agora é estático** (sem animação): a animação contínua mantinha
+  a GPU ocupada o tempo todo e, em placas integradas, **travava o vídeo ao abrir
+  o canal** (tela branca / "Carregando" preso). Estático libera a GPU para o
+  player — abre mais rápido e sem travar.
+- **Botões da TV ao Vivo** (Favoritos / EPG / Tela cheia) agora são *ghost*
+  (só ícone; viram botão ao passar o mouse), no mesmo estilo do "Ver todas as
+  categorias".
+- **Barra de busca restaurada** no topo da TV ao Vivo.
+- **Botão EPG abre o guia completo** do canal (lista de toda a programação),
+  além do painel agora/a seguir que continua embaixo do vídeo.
+
+## v1.35 - 2026-05-30
+**Botões do player no estilo de referência.**
+- Os botões da barra de controles do player (anterior, ±10s, play/pause,
+  próximo, áudio, legenda, tela cheia, parar) agora são **quadrados arredondados
+  escuros sólidos** com ícone branco (antes eram círculos transparentes que só
+  apareciam no hover), conforme o estilo da referência enviada.
+
+## v1.34 - 2026-05-30
+**Corrige filme tocando em segundo plano + limpeza da Home.**
+- **Filmes/Séries param de verdade ao Voltar**: novo `StreamPlayer.stop()` que
+  envia "stop" ao mpv **e** limpa o canal atual + desliga os watchdogs — antes
+  o auto-reload (por buffering/EOF) religava o vídeo em segundo plano depois de
+  fechar o player.
+- Removido o carrossel "Séries · …" da Home.
+
+## v1.33 - 2026-05-30
+**TV ao Vivo: botões só de ícone, busca removida e botão de EPG.**
+- Botões da TV ao Vivo agora são **apenas ícones** (sem texto): Favoritos
+  (estrela, fica roxa quando favoritado), **EPG** (mostra/oculta a Programação)
+  e Tela cheia. Ícones SVG (sem emoji).
+- **Barra de busca removida** da TV ao Vivo (e o botão "Procurar"); a navegação
+  é por categorias.
+- `AppButton` agora suporta modo **só-ícone** (botão quadrado).
+
+## v1.32 - 2026-05-30
+**Carrossel "Lançamentos" com a etiqueta NOVO.**
+- Nova fileira **"Lançamentos"** na Home (categoria de lançamentos do provedor),
+  e a etiqueta **NOVO** passou a aparecer **apenas** nesse carrossel.
+- Removida a etiqueta NOVO dos carrosséis de "adicionados recentemente" e do
+  banner em destaque (agora rotulado só como "EM DESTAQUE").
+
+## v1.31 - 2026-05-30
+**Banner "recém-adicionado", etiqueta NOVO, controle parental com cadeado e
+recuperação de PIN, e refinos.**
+
+### App Windows — `app/`
+- **Banner em destaque = último filme adicionado** (atualiza a cada recarga) com
+  etiqueta **"NOVO · RECÉM-ADICIONADO"**.
+- **Etiqueta "NOVO"** nos cards dos carrosséis de filmes/séries recém-adicionados.
+- **Controle parental repaginado**: categorias bloqueadas **não somem mais** —
+  aparecem com um **cadeado** na grade (TV ao Vivo) e no índice de categorias;
+  ao clicar, pedem o **PIN** (libera na sessão). Conteúdo VOD bloqueado fica fora
+  dos carrosséis (acessível com cadeado em "Ver todas as categorias").
+- **Recuperação de PIN esquecido**: opção "Esqueci o PIN" (no cadeado e nas
+  Configurações) que redefine o PIN confirmando a **senha da conta**.
+- **"Ver todas as categorias"** virou botão *ghost* (só texto; vira botão no
+  hover/clique).
+- **Conteúdo aparece mais rápido após recarregar**: gravação das listas de
+  "vistos" foi tirada do caminho crítico (feita após a UI pintar).
+- Player mpv **intocado**.
+
+## v1.30 - 2026-05-29
+**Botões refeitos (escolha do usuário): branco/cinza sólido, cantos pequenos.**
+- `AppButton`: principal **branco** sólido (texto/ícone escuros), secundário
+  **cinza-escuro sólido** (`#2A2A33`, texto branco), **cantos pequenos (6px)**.
+  Substitui o secundário translúcido da v1.29 (que ficava apagado). Aplicado em
+  Home, TV ao Vivo, "Ver todas as categorias" e no painel de Controle Parental.
+
+## v1.29 - 2026-05-29
+**Botões estilo HBO Max, continuar assistindo e ícones de canal nítidos.**
+
+### App Windows — `app/`
+- **Botões redesenhados no estilo HBO Max**: ação principal em **branco**
+  (texto/ícone escuros, ex.: "Reproduzir"); secundárias em **branco
+  translúcido** (texto branco). Aplicado na Home (Reproduzir / Explorar
+  Filmes), TV ao Vivo (Favoritos / Procurar / Tela cheia) e "Ver todas as
+  categorias". Campo de **busca** do topo também repaginado (translúcido).
+- **Continuar assistindo**: ao clicar em **Voltar** num filme/episódio, a
+  reprodução é encerrada e a **posição é salva**. Ao reabrir o título, ele
+  **retoma de onde parou**. Novo carrossel **"Continuar assistindo"** na Home.
+- **Ícones dos canais nítidos**: render com `mipmap`/`smooth` e decode em
+  resolução adequada — acaba com o serrilhado/borrão dos logos pequenos.
+- Player mpv **intocado**.
+
+## v1.28 - 2026-05-29
+**Adicionados recentemente, controle parental, botões premium e ajustes do player.**
+
+### App Windows — `app/`
+- **Carrosséis "Adicionados recentemente"** na Home (Filmes e Séries),
+  calculados pela diferença de títulos entre a carga atual e a anterior (com
+  fallback para a categoria de lançamentos no 1º uso).
+- **Controle Parental** (Configurações → Controle Parental): define um **PIN**
+  de 4 dígitos, bloqueia **categorias adultas automaticamente** (por palavra-
+  chave) e permite **bloquear categorias específicas**. Categorias bloqueadas
+  ficam ocultas das listas; o painel é protegido por PIN; há opção de liberar
+  o conteúdo só na sessão atual.
+- **Botões redesenhados** (estilo aplicativo, não web): novo `AppButton`
+  (primário com gradiente, secundário, ghost, com ícone e estados de hover/
+  press). Aplicado em TV ao Vivo (Favoritos/Procurar/Tela cheia) e nos botões
+  "Ver todas as categorias".
+- **Faixas de áudio/legenda com nome completo**: "por" → Português, "eng" →
+  Inglês, etc. (antes mostrava o código abreviado).
+- **Barra de controles do player centralizada**: o transporte (play/pause/etc.)
+  fica no centro real; áudio/legenda/tela cheia/parar ficam à direita.
+- Player mpv **intocado**.
+
+## v1.27 - 2026-05-29
+**Logo em wordmark.** A pedido, a marca passou a ser só o nome (sem símbolo):
+**"Swift"** (branco) + **"IPTV"** (roxo), em peso forte e tracking apertado —
+visual limpo e profissional. Removido o símbolo decorativo das telas.
+
+## v1.26 - 2026-05-29
+**Polimento visual: logo nova, TV ao Vivo mais bonita, hero com destaque.**
+
+### App Windows — `app/`
+- **Logo refeita** (3ª iteração): agora um **raio** (lightning) com gradiente
+  roxo/índigo — remete a "Swift" (velocidade), sem a "caixinha" anterior.
+- **TV ao Vivo** mais bonita: canais sem logo deixam de mostrar um quadrado
+  cinza vazio — exibem um ícone de TV elegante; logos com borda arredondada;
+  estado "Selecione um canal" agora tem ícone; linhas mais premium.
+- **Home com hero de destaque** (estilo streaming): o primeiro filme aparece
+  como **destaque** (pôster + "Reproduzir") e toca direto da Home; os
+  carrosséis de Filmes tocam no clique; Séries levam à seção.
+- Player mpv **intocado**.
+
+## v1.25 - 2026-05-29
+**Salto visual: interface cinematográfica com animações.** Foco em
+modernidade, profundidade e movimento.
+
+### App Windows — `app/`
+- **Fundo "aurora" animado**: blobs de luz roxa/índigo/violeta flutuando
+  lentamente atrás de todo o conteúdo (puro QML, sutil e premium).
+- **Logo SwiftIPTV refeita**: marca em squircle com gradiente, brilho (gloss)
+  e play arredondado — mais identidade e acabamento.
+- **Login cinematográfico**: card de vidro que surge com fade+escala (leve
+  overshoot), logo com brilho pulsante, foco animado nos campos e botão em
+  gradiente com realce no hover.
+- **Home repensada** (removidos os 3 cards simples): **hero animado** com marca,
+  tagline e chamadas pra ação + **carrosséis** de Filmes e Séries em destaque
+  (estilo streaming).
+- **Animações de entrada** em todas as telas (fade-in suave) e **indicador de
+  aba animado** na barra de topo (cresce/desliza).
+- **Micro-interações**: pôsteres e botões com elevação/zoom e brilho no hover.
+- Configurações: fundo levemente translúcido pra revelar a aurora.
+- Player mpv **intocado**.
+
+## v1.24 - 2026-05-29
+**Logo nova SwiftIPTV, TV ao Vivo redesenhada, navegação por categorias e
+modais de áudio/legenda.** Continuação do redesign (sobre a v1.23).
+
+### Marca
+- **Nova logo SwiftIPTV criada do zero** (vetorial): marca roxa com play +
+  linhas de velocidade + wordmark "Swift"+"IPTV" (`Logo.qml` + `logo-swift.svg`).
+  Aposenta a logo antiga.
+- **Renomeado "DIGTV+" → "SwiftIPTV"** em todo o app (título da janela, nome de
+  exibição, Configurações, instalador).
+
+### App Windows — `app/`
+- **TV ao Vivo redesenhada** (estilo TiViMate/Pluto): lista de canais com
+  **programa atual (EPG) + barra de progresso** por canal; coluna do player
+  com EPG "agora/a seguir" destacado. O EPG foi mantido e ganhou destaque.
+- **Filmes e Séries — navegação por categorias**: botão **"Ver todos"** em cada
+  fileira (abre a grade completa da categoria) e **"Ver todas as categorias"**
+  no canto superior direito (índice de todas as categorias).
+- **Modais de Faixa de áudio e Legenda** no player: os ícones agora abrem um
+  modal listando as faixas/legendas disponíveis do título atual para o usuário
+  **escolher** (não apenas alternar). Inclui opção "Desligado" para legenda.
+- **Login**: removido o link "Testar minha conexão".
+- **Após o login vai direto para a Home** (sem a tela de DNS automática; DNS
+  fica em Configurações → "Otimizar Minha Conexão").
+- **Stop ao alternar** entre TV ao Vivo / Filmes / Séries.
+- **Animação de "Recarregando lista"**: overlay com spinner ao recarregar a
+  lista IPTV.
+- **Backend**: `tvgId` exposto por canal (EPG na lista); `audioTracks()`/
+  `subtitleTracks()`/`setAudioTrack`/`setSubtitleTrack` no player.
+- Player mpv **intocado** (qualidade/hwdec/cache).
+
+## v1.23 - 2026-05-29
+**Redesign completo do visual — estilo HBO Max / Netflix.** Reformulação de
+todas as telas para um visual cinematográfico, profissional e organizado.
+
+### Tema
+- **Nova paleta HBO Max**: preto profundo com leve tom roxo + destaque violeta
+  (`#8B5CF6`) e gradiente roxo→índigo nos botões/destaques. Texto branco.
+- **Fundo gradiente** cinematográfico (substitui o pattern hexagonal).
+- **Ícones em branco** (recoloridos), destaque roxo; logo TV DIG+ mantida.
+- Nova **barra de topo** (`TopBar.qml`) estilo streaming: logo + abas com
+  indicador da aba ativa + busca + atalho de Conta/Configurações.
+
+### App Windows — `app/`
+- **Login redesenhado** (cinematográfico, brilho roxo, botão em gradiente).
+  Removido o link "Testar minha conexão" da tela de login.
+- **Ao logar, vai direto para a Home** — a tela "Otimizar sua conexão" (DNS)
+  não aparece mais automaticamente (fica em Configurações → "Otimizar Minha
+  Conexão").
+- **Home premium**: três grandes cartões (TV ao Vivo / Filmes / Séries) +
+  ações (Configurações / Recarregar / Sair).
+- **Filmes — navegação estilo Netflix**: fileiras (carrosséis) horizontais de
+  pôsteres por categoria; busca mostra uma grade de resultados; clicar abre o
+  **player em tela cheia**.
+- **Séries — fluxo completo**: carrosséis de séries por categoria → **tela de
+  detalhes** (capa + seletor de temporada + lista de episódios com miniatura)
+  → episódio abre o player. Resolve a organização ruim de temporadas/episódios.
+- **Player em tela cheia** (`PlayerOverlay.qml`) com **controles bem
+  espaçados**: anterior, −10s, play/pause, +10s, próximo, áudio, legenda, tela
+  cheia, parar, voltar + barra de progresso. (O chrome fica fora do retângulo
+  do vídeo por causa da janela nativa do mpv; em tela cheia some, ESC sai.)
+- **Stop ao alternar** entre TV ao Vivo / Filmes / Séries (e ao abrir
+  Configurações pela barra de topo).
+- **Backend**: `moviesInCategory(categoria, limite)` e `searchSeries(texto)`
+  para alimentar carrosséis e busca.
+- Player mpv **intocado** (qualidade/hwdec/cache).
+
 ## v1.22 - 2026-05-29
 **Player de VOD completo + Séries organizadas + Home alinhada.** Pacote de
 melhorias a partir do feedback do uso real da v1.21.

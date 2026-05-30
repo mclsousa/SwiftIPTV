@@ -4,268 +4,393 @@ import QtQuick.Layouts
 import QtQuick.Window
 import SwiftIPTV
 
-// Tela de Séries em 3 colunas:
-//   categorias  |  série -> temporada -> episódios  |  player + controles
-// A coluna do meio navega: lista de séries -> (clica) -> temporadas + episódios.
+// Séries — estilo Netflix/HBO: barra de topo + carrosséis de séries por
+// categoria (cada um com "Ver todos") + botão "Ver todas as categorias".
+// Clicar numa série abre os DETALHES (capa + seletor de temporada + episódios
+// com miniatura). Clicar num episódio abre o player em tela cheia.
 Item {
     id: root
     anchors.fill: parent
-    focus: true
+    opacity: 0
+    NumberAnimation on opacity { from: 0; to: 1; duration: 380; easing.type: Easing.OutCubic }
 
-    property string currentCategory: ""
-    property var    seriesList: []
-    property string selectedSeries: ""
+    property string view: "browse"   // "browse" | "grid" | "categories" | "detail"
+    property string prevView: "browse"
+    property string search: ""
+    property var    seriesResults: []
+    property string selectedCat: ""
+    property var    gridSeries: []
+
+    // Detalhe
+    property string selSeries: ""
     property var    seasonsList: []
-    property int    selectedSeason: 0
+    property int    selSeason: 0
     property var    episodeList: []
-    property int    currentEpRow: -1
+    property string selPoster: ""
+    property int    playIdx: -1
+    property int    lockTick: 0
 
-    readonly property bool isFullscreen: Window.window && Window.window.visibility === Window.FullScreen
-    function toggleFullscreen() {
-        var w = Window.window
-        w.visibility = (w.visibility === Window.FullScreen) ? Window.Windowed : Window.FullScreen
+    function openCategoryGrid(name) {
+        root.selectedCat = name
+        root.gridSeries = channels.seriesInCategory(name)
+        root.view = "grid"
     }
-
-    function setCategory(name) {
-        root.currentCategory = name
-        root.selectedSeries = ""
-        root.seriesList = channels.seriesInCategory(name)
-    }
-    function openSeries(name) {
-        root.selectedSeries = name
-        root.seasonsList = channels.seasonsOf(root.currentCategory, name)
-        root.selectedSeason = root.seasonsList.length > 0 ? root.seasonsList[0].season : 0
+    function openDetail(cat, name, poster) {
+        root.prevView = (root.search !== "") ? "browse" : root.view
+        root.selectedCat = cat
+        root.selSeries = name
+        root.selPoster = poster ? poster : ""
+        root.seasonsList = channels.seasonsOf(cat, name)
+        root.selSeason = root.seasonsList.length > 0 ? root.seasonsList[0].season : 0
         loadEpisodes()
+        root.view = "detail"
     }
     function loadEpisodes() {
-        root.episodeList = channels.episodesOf(root.currentCategory, root.selectedSeries, root.selectedSeason)
-        root.currentEpRow = -1
+        root.episodeList = channels.episodesOf(root.selectedCat, root.selSeries, root.selSeason)
+        root.playIdx = -1
     }
-    function selectSeason(s) { root.selectedSeason = s; loadEpisodes() }
-    function playEp(row) {
-        if (row < 0 || row >= root.episodeList.length) return
-        root.currentEpRow = row
-        var ep = root.episodeList[row]
-        player.playById(ep.id)
-        vodPlayer.infoText = root.selectedSeries + "  •  T" + root.selectedSeason + " E" + ep.episode
+    function selectSeason(s) { root.selSeason = s; loadEpisodes() }
+    function playEp(idx) {
+        if (idx < 0 || idx >= root.episodeList.length) return
+        root.playIdx = idx
+        var ep = root.episodeList[idx]
+        playerOverlay.infoText = root.selSeries + "  •  T" + root.selSeason + " E" + ep.episode
+        playerOverlay.play(ep.id, root.selSeries + " · T" + root.selSeason + "E" + ep.episode, ep.logo)
     }
-    function selectFirstCategoryIfNeeded() {
-        if (root.currentCategory === "" && channels.seriesCategoriesModel.count > 0) {
-            var name = channels.seriesCategoriesModel.data(
-                channels.seriesCategoriesModel.index(0, 0), Qt.UserRole + 1)
-            if (name) root.setCategory(name)
-        }
-    }
+    function playStep(d) { root.playEp(root.playIdx + d) }
 
-    Component.onCompleted: { forceActiveFocus(); selectFirstCategoryIfNeeded() }
     Connections {
         target: channels
-        function onListReady(n) { root.setCategory(root.currentCategory); selectFirstCategoryIfNeeded() }
         function onError(m) { Window.window.notify(m) }
+        function onParentalChanged() { root.lockTick++ }
     }
-    Keys.onPressed: function(e) {
-        if (e.key === Qt.Key_F11) { toggleFullscreen(); e.accepted = true }
-        else if (e.key === Qt.Key_Escape) {
-            if (root.isFullscreen) toggleFullscreen()
-            else if (root.selectedSeries !== "") root.selectedSeries = ""
-            e.accepted = true
-        }
-    }
+    Shortcut { sequence: "Esc"; enabled: !playerOverlay.active && (root.view !== "browse" || root.search !== "")
+        onActivated: {
+            if (root.view === "detail") root.view = root.prevView
+            else if (root.view !== "browse") root.view = "browse"
+        } }
 
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
 
-        TopNav {
-            id: topNav
+        TopBar {
+            id: topBar
             Layout.fillWidth: true
-            visible: !root.isFullscreen
             active: "series"
             onTabClicked: function(key) {
-                vodPlayer.stop()
-                if (key === "home")        app.navigate("home")
-                else if (key === "live")   app.navigate("player")
-                else if (key === "movies") app.navigate("movies")
+                if (playerOverlay.active) playerOverlay.stop()
+                if (key === "home")           app.navigate("home")
+                else if (key === "live")      app.navigate("player")
+                else if (key === "favorites") app.navigate("favorites")
+                else if (key === "movies")    app.navigate("movies")
+                else if (key === "profile")   app.navigate("settings")
             }
-            // Busca filtra a lista de séries da categoria atual (client-side).
-            onSearchTextChanged: root.filterSeries(topNav.searchText)
+            onSearchTextChanged: {
+                root.search = topBar.searchText
+                root.seriesResults = channels.searchSeries(topBar.searchText, 80)
+            }
         }
 
+        // Sub-cabeçalho (oculto no detalhe e na busca)
         RowLayout {
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            spacing: 0
-
-            // Col 1: categorias
-            CategorySidebar {
-                Layout.preferredWidth: 280
-                Layout.fillHeight: true
-                visible: !root.isFullscreen
-                categoryModel: channels.seriesCategoriesModel
-                current: root.currentCategory
-                onCategorySelected: function(name) { root.setCategory(name) }
-            }
-            Rectangle { width: 1; Layout.fillHeight: true; color: Theme.border; visible: !root.isFullscreen }
-
-            // Col 2: séries  /  temporadas + episódios
+            Layout.preferredHeight: 52
+            Layout.leftMargin: 24; Layout.rightMargin: 24
+            visible: root.search === "" && root.view !== "detail"
+            spacing: 12
             Rectangle {
-                Layout.preferredWidth: 380
-                Layout.fillHeight: true
-                visible: !root.isFullscreen
-                color: Theme.bg
+                visible: root.view !== "browse"
+                width: 38; height: 38; radius: 19
+                color: bkMouse.containsMouse ? Theme.panel2 : "transparent"
+                Image { anchors.centerIn: parent
+                    source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/back.svg"
+                    sourceSize.width: 22; sourceSize.height: 22 }
+                MouseArea { id: bkMouse; anchors.fill: parent; hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor; onClicked: root.view = "browse" }
+            }
+            Text {
+                text: root.view === "grid" ? root.selectedCat
+                      : (root.view === "categories" ? "Todas as categorias" : "Séries")
+                color: Theme.text; font.pixelSize: 22; font.bold: true
+            }
+            Item { Layout.fillWidth: true }
+            AppButton {
+                visible: root.view === "browse"
+                kind: "ghost"; fontSize: 13
+                text: "Ver todas as categorias"
+                onClicked: root.view = "categories"
+            }
+        }
 
-                // --- Nível 1: lista de séries ---
+        // ===== Carrosséis =====
+        ListView {
+            id: rows
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.search === "" && root.view === "browse"
+            clip: true
+            model: channels.seriesCategoriesModel
+            cacheBuffer: 800
+            spacing: 20
+            bottomMargin: 24
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar { }
+            delegate: Column {
+                id: catRow
+                required property string name
+                property bool locked: (root.lockTick, channels.isCategoryLocked(name))
+                visible: !locked
+                width: rows.width
+                height: locked ? 0 : implicitHeight
+                spacing: 8
+                RowLayout {
+                    width: rows.width - 56; x: 28
+                    Text { text: catRow.name; color: Theme.text; font.pixelSize: 19; font.bold: true }
+                    Item { Layout.fillWidth: true }
+                    Text { text: "Ver todos  ›"; color: vtMouse.containsMouse ? Theme.brand : Theme.subtext
+                        font.pixelSize: 13; font.bold: true
+                        MouseArea { id: vtMouse; anchors.fill: parent; hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor; onClicked: root.openCategoryGrid(catRow.name) } }
+                }
                 ListView {
-                    id: seriesView
-                    anchors.fill: parent
-                    visible: root.selectedSeries === ""
-                    clip: true
-                    model: root.seriesList
-                    cacheBuffer: 400
+                    id: rowList
+                    property string categoryName: catRow.name
+                    width: rows.width; height: 232
+                    orientation: ListView.Horizontal
+                    leftMargin: 28; rightMargin: 28; spacing: 14
+                    clip: true; cacheBuffer: 600
                     boundsBehavior: Flickable.StopAtBounds
-                    ScrollBar.vertical: ScrollBar { }
-                    delegate: Rectangle {
+                    model: channels.seriesInCategory(catRow.name)
+                    delegate: SeriesCard {
                         required property var modelData
-                        width: ListView.view.width
-                        height: 70
-                        color: srMouse.containsMouse ? Theme.panel : "transparent"
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 10
-                            Rectangle {
-                                width: 40; height: 56; radius: 5; color: Theme.panel2; clip: true
-                                Image {
-                                    anchors.fill: parent; fillMode: Image.PreserveAspectCrop
-                                    asynchronous: true; cache: true
-                                    source: modelData.poster ? modelData.poster : ""
-                                    visible: source != ""
-                                }
-                            }
-                            ColumnLayout {
-                                Layout.fillWidth: true; spacing: 2
-                                Text { Layout.fillWidth: true; text: modelData.name; color: Theme.text
-                                    font.pixelSize: 14; font.bold: true; elide: Text.ElideRight }
-                                Text { text: modelData.seasons + (modelData.seasons === 1 ? " temporada" : " temporadas")
-                                       + "  •  " + modelData.episodes + " ep"
-                                    color: Theme.subtext; font.pixelSize: 12 }
-                            }
-                            Text { text: "›"; color: Theme.subtext; font.pixelSize: 22 }
-                        }
-                        MouseArea { id: srMouse; anchors.fill: parent; hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor; onClicked: root.openSeries(modelData.name) }
-                    }
-                    Text {
-                        anchors.centerIn: parent; visible: seriesView.count === 0
-                        text: "Selecione uma categoria"; color: Theme.subtext; font.pixelSize: 14
+                        title: modelData.name; poster: modelData.poster
+                        onClicked: root.openDetail(rowList.categoryName, modelData.name, modelData.poster)
                     }
                 }
+            }
+            Text { anchors.centerIn: parent; visible: rows.count === 0
+                text: "Carregando séries..."; color: Theme.subtext; font.pixelSize: 15 }
+        }
 
-                // --- Nível 2: temporadas + episódios ---
-                ColumnLayout {
-                    anchors.fill: parent
-                    visible: root.selectedSeries !== ""
-                    spacing: 0
+        // ===== Grade de uma categoria (Ver todos) =====
+        GridView {
+            id: catGrid
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.search === "" && root.view === "grid"
+            clip: true
+            cellWidth: 168; cellHeight: 250
+            leftMargin: 20; topMargin: 6
+            model: root.gridSeries
+            cacheBuffer: 800
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar { }
+            delegate: SeriesCard {
+                required property var modelData
+                title: modelData.name; poster: modelData.poster
+                onClicked: root.openDetail(root.selectedCat, modelData.name, modelData.poster)
+            }
+        }
 
-                    // Cabeçalho: voltar + nome da série
-                    Rectangle {
-                        Layout.fillWidth: true; height: 48; color: Theme.panel
-                        RowLayout {
-                            anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 12; spacing: 8
-                            Rectangle {
-                                width: 36; height: 36; radius: 18
-                                color: backMouse.containsMouse ? Theme.panel2 : "transparent"
-                                Image { anchors.centerIn: parent
-                                    source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/back.svg"
-                                    sourceSize.width: 20; sourceSize.height: 20 }
-                                MouseArea { id: backMouse; anchors.fill: parent; hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor; onClicked: root.selectedSeries = "" }
-                            }
-                            Text { Layout.fillWidth: true; text: root.selectedSeries; color: Theme.text
+        // ===== Índice de categorias =====
+        GridView {
+            id: catsView
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.search === "" && root.view === "categories"
+            clip: true
+            cellWidth: 256; cellHeight: 84
+            leftMargin: 20; topMargin: 6
+            model: channels.seriesCategoriesModel
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar { }
+            delegate: Item {
+                id: catCell
+                required property string name
+                required property int count
+                property bool locked: (root.lockTick, channels.isCategoryLocked(name))
+                width: catsView.cellWidth; height: catsView.cellHeight
+                Rectangle {
+                    anchors.fill: parent; anchors.margins: 6; radius: 12
+                    color: ccMouse.containsMouse ? Theme.panel2 : Theme.panel
+                    border.color: ccMouse.containsMouse ? Theme.brand : Theme.border
+                    RowLayout {
+                        anchors.fill: parent; anchors.margins: 14; spacing: 10
+                        ColumnLayout {
+                            Layout.fillWidth: true; spacing: 2
+                            Text { Layout.fillWidth: true; text: catCell.name; color: Theme.text
                                 font.pixelSize: 15; font.bold: true; elide: Text.ElideRight }
+                            Text { text: catCell.count + " séries"; color: Theme.subtext; font.pixelSize: 12 }
+                        }
+                        Image {
+                            visible: catCell.locked
+                            source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/lock.svg"
+                            sourceSize.width: 18; sourceSize.height: 18; opacity: 0.85
                         }
                     }
+                    MouseArea { id: ccMouse; anchors.fill: parent; hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: catCell.locked ? pinDialog.openFor(catCell.name) : root.openCategoryGrid(catCell.name) }
+                }
+            }
+        }
 
-                    // Seletor de temporadas
-                    Flickable {
-                        Layout.fillWidth: true; Layout.preferredHeight: 46
-                        contentWidth: seasonRow.width; clip: true
-                        Row {
-                            id: seasonRow
-                            height: 46; spacing: 8; leftPadding: 10; rightPadding: 10
+        // ===== Resultados de busca =====
+        GridView {
+            id: results
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.view !== "detail" && root.search !== ""
+            clip: true
+            cellWidth: 168; cellHeight: 250
+            leftMargin: 20; topMargin: 6
+            model: root.seriesResults
+            cacheBuffer: 800
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar { }
+            delegate: SeriesCard {
+                required property var modelData
+                title: modelData.name; poster: modelData.poster
+                onClicked: root.openDetail(modelData.category, modelData.name, modelData.poster)
+            }
+            Text { anchors.centerIn: parent; visible: results.count === 0
+                text: "Nenhuma série encontrada."; color: Theme.subtext; font.pixelSize: 15 }
+        }
+
+        // ===== DETALHE =====
+        Item {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.view === "detail"
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 24
+                spacing: 16
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 18
+                    Rectangle {
+                        width: 150; height: 222; radius: 12; color: Theme.panel; clip: true
+                        Image { anchors.fill: parent; fillMode: Image.PreserveAspectCrop
+                            asynchronous: true; cache: true
+                            source: root.selPoster ? root.selPoster : ""; visible: source != "" }
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true; Layout.alignment: Qt.AlignTop; spacing: 12
+                        RowLayout {
+                            spacing: 10
+                            Rectangle {
+                                width: 40; height: 40; radius: 20
+                                color: dbMouse.containsMouse ? Theme.panel2 : "transparent"
+                                Image { anchors.centerIn: parent
+                                    source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/back.svg"
+                                    sourceSize.width: 22; sourceSize.height: 22 }
+                                MouseArea { id: dbMouse; anchors.fill: parent; hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor; onClicked: root.view = root.prevView }
+                            }
+                            Text { Layout.fillWidth: true; text: root.selSeries; color: Theme.text
+                                font.pixelSize: 26; font.bold: true; elide: Text.ElideRight }
+                        }
+                        Text { text: root.seasonsList.length + (root.seasonsList.length === 1 ? " temporada" : " temporadas")
+                            color: Theme.subtext; font.pixelSize: 14 }
+                        Flow {
+                            Layout.fillWidth: true; spacing: 8
                             Repeater {
                                 model: root.seasonsList
                                 delegate: Rectangle {
                                     required property var modelData
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: chipText.implicitWidth + 24; height: 32; radius: 16
-                                    property bool sel: modelData.season === root.selectedSeason
+                                    width: chTxt.implicitWidth + 26; height: 34; radius: 17
+                                    property bool sel: modelData.season === root.selSeason
                                     color: sel ? Theme.brand : Theme.panel2
-                                    Text { id: chipText; anchors.centerIn: parent
-                                        text: "Temporada " + modelData.season
-                                        color: sel ? Theme.buttonText : Theme.text
-                                        font.pixelSize: 12; font.bold: sel }
+                                    border.color: sel ? Theme.brand : Theme.border
+                                    Text { id: chTxt; anchors.centerIn: parent; text: "Temporada " + modelData.season
+                                        color: sel ? Theme.buttonText : Theme.text; font.pixelSize: 13; font.bold: sel }
                                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                                         onClicked: root.selectSeason(modelData.season) }
                                 }
                             }
                         }
                     }
-                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
-
-                    // Episódios da temporada
-                    ListView {
-                        id: epView
-                        Layout.fillWidth: true; Layout.fillHeight: true
-                        clip: true
-                        model: root.episodeList
-                        boundsBehavior: Flickable.StopAtBounds
-                        ScrollBar.vertical: ScrollBar { }
-                        delegate: Rectangle {
-                            required property int index
-                            required property var modelData
-                            width: ListView.view.width
-                            height: 56
-                            property bool isCurrent: player.currentId === modelData.id
-                            color: isCurrent ? Theme.panel2 : (epMouse.containsMouse ? Theme.panel : "transparent")
-                            RowLayout {
-                                anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 12; spacing: 10
-                                Text { text: modelData.episode; color: isCurrent ? Theme.brand : Theme.subtext
-                                    font.pixelSize: 14; font.bold: true; Layout.preferredWidth: 30 }
-                                Text { Layout.fillWidth: true; text: "Episódio " + modelData.episode
-                                    color: isCurrent ? Theme.brand : Theme.text; font.pixelSize: 14
-                                    font.bold: isCurrent; elide: Text.ElideRight }
+                }
+                ListView {
+                    id: epList
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    clip: true; model: root.episodeList; spacing: 10; cacheBuffer: 600
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.vertical: ScrollBar { }
+                    delegate: Rectangle {
+                        required property int index
+                        required property var modelData
+                        width: epList.width; height: 92; radius: 10
+                        color: epMouse.containsMouse ? Theme.panel2 : Theme.panel
+                        border.color: player.currentId === modelData.id ? Theme.brand : Theme.border
+                        border.width: player.currentId === modelData.id ? 2 : 1
+                        RowLayout {
+                            anchors.fill: parent; anchors.margins: 12; spacing: 14
+                            Rectangle {
+                                width: 124; height: 68; radius: 6; color: Theme.bg; clip: true
+                                Image { anchors.fill: parent; fillMode: Image.PreserveAspectCrop
+                                    asynchronous: true; cache: true
+                                    source: modelData.logo ? modelData.logo : ""; visible: source != "" }
+                                Rectangle {
+                                    anchors.centerIn: parent; width: 34; height: 34; radius: 17
+                                    color: "#aa000000"; visible: epMouse.containsMouse
+                                    Image { anchors.centerIn: parent
+                                        source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/play.svg"
+                                        sourceSize.width: 20; sourceSize.height: 20 }
+                                }
                             }
-                            MouseArea { id: epMouse; anchors.fill: parent; hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.playEp(index)
-                                onDoubleClicked: { root.playEp(index); root.toggleFullscreen() } }
+                            ColumnLayout {
+                                Layout.fillWidth: true; spacing: 4
+                                Text { text: "Episódio " + modelData.episode
+                                    color: player.currentId === modelData.id ? Theme.brand : Theme.text
+                                    font.pixelSize: 16; font.bold: true }
+                                Text { Layout.fillWidth: true; text: modelData.name
+                                    color: Theme.subtext; font.pixelSize: 12; elide: Text.ElideRight }
+                            }
                         }
+                        MouseArea { id: epMouse; anchors.fill: parent; hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor; onClicked: root.playEp(index) }
                     }
                 }
-            }
-            Rectangle { width: 1; Layout.fillHeight: true; color: Theme.border; visible: !root.isFullscreen }
-
-            // Col 3: player + controles
-            VodPlayerColumn {
-                id: vodPlayer
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                fullscreen: root.isFullscreen
-                onFullscreenRequested: root.toggleFullscreen()
-                onNextRequested: root.playEp(root.currentEpRow + 1)
-                onPrevRequested: root.playEp(root.currentEpRow - 1)
             }
         }
     }
 
-    // Filtra a lista de séries da categoria atual pelo texto da busca.
-    function filterSeries(text) {
-        var all = channels.seriesInCategory(root.currentCategory)
-        if (!text || text === "") { root.seriesList = all; return }
-        var t = text.toLowerCase()
-        var out = []
-        for (var i = 0; i < all.length; ++i)
-            if (all[i].name.toLowerCase().indexOf(t) >= 0) out.push(all[i])
-        root.seriesList = out
+    PlayerOverlay {
+        id: playerOverlay
+        onNextRequested: root.playStep(1)
+        onPrevRequested: root.playStep(-1)
+    }
+
+    PinDialog { id: pinDialog; onUnlocked: root.openCategoryGrid(pinDialog.category) }
+
+    component SeriesCard: Item {
+        id: sc
+        property string title: ""
+        property string poster: ""
+        signal clicked()
+        width: 140; height: 232
+        Column {
+            anchors.fill: parent; spacing: 6
+            Rectangle {
+                width: parent.width; height: 196; radius: 10; color: Theme.panel; clip: true
+                border.color: scMouse.containsMouse ? Theme.brand : "transparent"; border.width: 2
+                scale: scMouse.containsMouse ? 1.05 : 1.0
+                Behavior on scale { NumberAnimation { duration: 110 } }
+                Image { anchors.fill: parent; fillMode: Image.PreserveAspectCrop
+                    asynchronous: true; cache: true
+                    source: sc.poster ? sc.poster : ""; visible: source != "" }
+                Image { anchors.centerIn: parent; visible: !sc.poster
+                    source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/series.svg"
+                    sourceSize.width: 40; sourceSize.height: 40; opacity: 0.4 }
+            }
+            Text { width: parent.width; text: sc.title; color: Theme.textDim
+                font.pixelSize: 12; elide: Text.ElideRight; maximumLineCount: 2
+                wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter }
+        }
+        MouseArea { id: scMouse; anchors.fill: parent; hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor; onClicked: sc.clicked() }
     }
 }

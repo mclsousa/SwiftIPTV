@@ -6,6 +6,9 @@
 #include <QMetaObject>
 #include <QPoint>
 #include <QSize>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
 
 #include <mpv/client.h>
 
@@ -31,7 +34,7 @@
 
 #ifdef _WIN32
 namespace {
-constexpr wchar_t kVideoClassName[] = L"DIGTVPlusVideoWindow";
+constexpr wchar_t kVideoClassName[] = L"SwiftIPTVVideoWindow";
 
 LRESULT CALLBACK VideoWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     auto* self = reinterpret_cast<MpvObject*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
@@ -165,6 +168,19 @@ void MpvObject::initializeMpv(QWindow* parentWindow) {
     mpv_set_option_string(m_mpv, "vo", "gpu");
     mpv_set_option_string(m_mpv, "gpu-api", "d3d11");
     mpv_set_option_string(m_mpv, "gpu-context", "d3d11");
+
+    // PRÉ-AQUECIMENTO DO CONTEXTO GPU (corrige a TELA BRANCA no 1º canal).
+    // Sem isto, o mpv só criava o device + swapchain D3D11 no PRIMEIRO frame do
+    // PRIMEIRO canal. Como o BLACK_BRUSH da janela só cobre pintura GDI (não a
+    // swapchain DXGI), enquanto o driver criava o device pela 1ª vez — disputando
+    // a GPU com o próprio D3D11 do Qt — a swapchain exibia o back-buffer não
+    // inicializado (branco) e a thread de render do Qt engasgava. force-window
+    // cria o VO/contexto JÁ no mpv_initialize (custo único, no load da tela, com
+    // o fundo preto do mpv ocioso). Nos canais seguintes o device é reutilizado.
+    // (Não mexe em decoder/scaler/hwdec/qualidade — só no ciclo de vida do VO.)
+    mpv_set_option_string(m_mpv, "force-window", "yes");
+    mpv_set_option_string(m_mpv, "idle", "yes");
+    mpv_set_option_string(m_mpv, "background", "#000000");
 
     // wid: HWND filho onde o mpv vai apresentar.
 #ifdef _WIN32
@@ -371,6 +387,90 @@ void MpvObject::setVolume(int v) {
 void MpvObject::togglePause() {
     if (!m_mpv) return;
     setMpvProperty("pause", m_paused ? "no" : "yes");
+}
+
+// Mapeia código de idioma (ISO 639) para o nome completo em português.
+static QString langName(const QString& codeRaw) {
+    const QString c = codeRaw.trimmed().toLower();
+    if (c.isEmpty()) return {};
+    static const QHash<QString, QString> m = {
+        {"por","Português"}, {"pt","Português"}, {"pt-br","Português (Brasil)"}, {"pob","Português (Brasil)"},
+        {"eng","Inglês"}, {"en","Inglês"},
+        {"spa","Espanhol"}, {"es","Espanhol"}, {"lat","Espanhol (Latino)"},
+        {"fra","Francês"}, {"fre","Francês"}, {"fr","Francês"},
+        {"deu","Alemão"}, {"ger","Alemão"}, {"de","Alemão"},
+        {"ita","Italiano"}, {"it","Italiano"},
+        {"jpn","Japonês"}, {"ja","Japonês"},
+        {"kor","Coreano"}, {"ko","Coreano"},
+        {"zho","Chinês"}, {"chi","Chinês"}, {"zh","Chinês"},
+        {"rus","Russo"}, {"ru","Russo"},
+        {"ara","Árabe"}, {"ar","Árabe"},
+        {"hin","Hindi"}, {"hi","Hindi"},
+        {"nld","Holandês"}, {"dut","Holandês"},
+        {"tur","Turco"}, {"pol","Polonês"}, {"swe","Sueco"}, {"nor","Norueguês"},
+        {"dan","Dinamarquês"}, {"fin","Finlandês"}, {"hun","Húngaro"},
+        {"und","Original"}, {"mul","Multilíngue"}
+    };
+    auto it = m.constFind(c);
+    return it != m.constEnd() ? it.value() : QString();
+}
+
+// Lê o "track-list" do mpv (JSON) e devolve as faixas do tipo pedido.
+static QVariantList readTracks(mpv_handle* mpv, const QString& wantType) {
+    QVariantList out;
+    if (!mpv) return out;
+    char* s = mpv_get_property_string(mpv, "track-list");
+    if (!s) return out;
+    const QByteArray json(s);
+    mpv_free(s);
+    const QJsonDocument doc = QJsonDocument::fromJson(json);
+    if (!doc.isArray()) return out;
+    const QJsonArray arr = doc.array();
+    for (const QJsonValue& v : arr) {
+        const QJsonObject o = v.toObject();
+        if (o.value("type").toString() != wantType) continue;
+        const int id = o.value("id").toInt();
+        const QString title = o.value("title").toString().trimmed();
+        const QString lang = o.value("lang").toString().trimmed();
+        const QString full = langName(lang);   // nome completo do idioma, se conhecido
+        QString label;
+        if (!title.isEmpty())      label = title;
+        else if (!full.isEmpty())  label = full;
+        else if (!lang.isEmpty())  label = lang.toUpper();
+        else label = (wantType == QLatin1String("audio") ? QStringLiteral("Faixa %1")
+                                                          : QStringLiteral("Legenda %1")).arg(id);
+        // Tem título E idioma conhecido que o título não menciona -> anexa o idioma por extenso.
+        if (!title.isEmpty() && !full.isEmpty() && !title.contains(full, Qt::CaseInsensitive))
+            label += QStringLiteral("  ·  ") + full;
+        QVariantMap m;
+        m["id"] = id;
+        m["label"] = label;
+        m["selected"] = o.value("selected").toBool();
+        out.push_back(m);
+    }
+    return out;
+}
+
+QVariantList MpvObject::audioTracks() const { return readTracks(m_mpv, QStringLiteral("audio")); }
+
+QVariantList MpvObject::subtitleTracks() const {
+    QVariantList subs = readTracks(m_mpv, QStringLiteral("sub"));
+    bool anySel = false;
+    for (const QVariant& v : subs) if (v.toMap().value("selected").toBool()) { anySel = true; break; }
+    QVariantMap off;
+    off["id"] = 0; off["label"] = QStringLiteral("Desligado"); off["selected"] = !anySel;
+    subs.prepend(off);
+    return subs;
+}
+
+void MpvObject::setAudioTrack(int id) {
+    if (m_mpv) setMpvProperty("aid", QString::number(id));
+}
+
+void MpvObject::setSubtitleTrack(int id) {
+    if (!m_mpv) return;
+    if (id <= 0) setMpvProperty("sid", QStringLiteral("no"));
+    else         setMpvProperty("sid", QString::number(id));
 }
 
 void MpvObject::stop() {

@@ -12,7 +12,19 @@
 #include <QFileInfo>
 #include <QDateTime>
 #include <QDir>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
 #include <algorithm>
+
+// Normaliza p/ busca: minúsculas + remove acentos ("Ação" -> "acao").
+static QString foldText(const QString& s) {
+    const QString d = s.normalized(QString::NormalizationForm_D);
+    QString out; out.reserve(d.size());
+    for (const QChar ch : d)
+        if (ch.category() != QChar::Mark_NonSpacing) out.append(ch.toLower());
+    return out;
+}
 
 ChannelManager::ChannelManager(AuthManager* auth, NetworkThread* logoCache, QObject* parent)
     : QObject(parent), m_auth(auth), m_logoCache(logoCache) {
@@ -47,6 +59,13 @@ ChannelManager::ChannelManager(AuthManager* auth, NetworkThread* logoCache, QObj
 
     m_favorites = Settings::instance().loadStringList("favorites.json");
     m_history   = Settings::instance().loadStringList("history.json");
+
+    // Controle parental (PIN guardado codificado; categorias bloqueadas em JSON).
+    m_pin        = Settings::instance().get("parental/pin", QString()).toString();
+    m_autoAdult  = Settings::instance().get("parental/auto_adult", true).toBool();
+    m_lockedCats = Settings::instance().loadStringList("parental_locked.json");
+
+    loadResume();
 }
 
 QObject* ChannelManager::model() const { return m_model; }
@@ -191,6 +210,12 @@ void ChannelManager::applyData(const QByteArray& data, const QString& serverBase
 
 void ChannelManager::onParsed(QVector<Channel> channels) {
     m_channels = std::move(channels);
+    // Índice global id -> posição (O(1) p/ channelById). Evita varredura linear
+    // de 147k canais a cada clique (rebuildAuxModels chamava channelById por item
+    // do histórico -> milhões de comparações -> travava a UI ao abrir o canal).
+    m_idIndex.clear();
+    m_idIndex.reserve(m_channels.size());
+    for (int i = 0; i < m_channels.size(); ++i) m_idIndex.insert(m_channels[i].id, i);
     // QVector é implicitly shared (COW): atribuir m_channels aos modelos não
     // duplica os dados — só compartilha até alguém mutar (e os modelos não mutam).
     m_model->setSource(m_channels);
@@ -201,6 +226,7 @@ void ChannelManager::onParsed(QVector<Channel> channels) {
     rebuildCategories(QStringLiteral("movie"),  m_movieCatModel);
     rebuildCategories(QStringLiteral("series"), m_seriesCatModel);
     rebuildSeriesIndex();
+    computeRecent();
     setLoading(false);
     setStatus(tr("%1 canais carregados.").arg(m_channels.size()));
     emit listReady(m_channels.size());
@@ -227,6 +253,8 @@ void ChannelManager::rebuildCategories(const QString& type, CategoryListModel* t
     QHash<QString,int> idx;
     for (const auto& c : m_channels) {
         if (c.type != type) continue;
+        // (Controle parental NÃO oculta mais: categorias bloqueadas aparecem
+        //  com cadeado e pedem PIN ao abrir — a UI cuida disso.)
         auto it = idx.constFind(c.group);
         if (it == idx.constEnd()) { idx.insert(c.group, int(cats.size())); cats.push_back({c.group, 1}); }
         else ++cats[it.value()].second;
@@ -319,10 +347,298 @@ QVariantList ChannelManager::episodesOf(const QString& category, const QString& 
     return out;
 }
 
+QString ChannelManager::launchCategoryName() const { return releasesCategory(QStringLiteral("movie")); }
+
+QVariantList ChannelManager::launchMovies(int limit) const {
+    return moviesInCategory(releasesCategory(QStringLiteral("movie")), limit);
+}
+
+QVariantList ChannelManager::moviesInCategory(const QString& category, int limit) const {
+    QVariantList out;
+    for (const auto& c : m_channels) {
+        if (c.type != QStringLiteral("movie")) continue;
+        if (c.group != category) continue;
+        QVariantMap m;
+        m["id"]   = c.id;
+        m["name"] = c.name;
+        m["logo"] = c.logo;
+        out.push_back(m);
+        if (limit > 0 && out.size() >= limit) break;
+    }
+    return out;
+}
+
+QVariantList ChannelManager::searchSeries(const QString& text, int limit) const {
+    QVariantList out;
+    if (text.isEmpty()) return out;
+    const QString needle = foldText(text);   // minúsculas + sem acento
+    for (auto it = m_seriesByCat.constBegin(); it != m_seriesByCat.constEnd(); ++it) {
+        for (const Ser& s : it.value()) {
+            if (!foldText(s.name).contains(needle)) continue;
+            QVariantMap m;
+            m["name"]     = s.name;
+            m["poster"]   = s.poster;
+            m["category"] = it.key();
+            out.push_back(m);
+            if (limit > 0 && out.size() >= limit) return out;
+        }
+    }
+    return out;
+}
+
+QString ChannelManager::releasesCategory(const QString& type) const {
+    static const QStringList keys = {QStringLiteral("lanç"), QStringLiteral("lanc"),
+        QStringLiteral("novidad"), QStringLiteral("recent"), QStringLiteral("estreia")};
+    QString first;
+    QHash<QString,bool> seen;
+    for (const auto& c : m_channels) {
+        if (c.type != type) continue;
+        if (seen.contains(c.group)) continue;
+        seen.insert(c.group, true);
+        if (first.isEmpty()) first = c.group;
+        const QString g = c.group.toLower();
+        for (const QString& k : keys) if (g.contains(k)) return c.group;
+    }
+    return first;
+}
+
+void ChannelManager::computeRecent() {
+    QSet<QString> curMovie, curSeries;
+    for (const auto& c : m_channels) {
+        if (c.type == QStringLiteral("movie")) curMovie.insert(c.name);
+        else if (c.type == QStringLiteral("series")) curSeries.insert(c.seriesName);
+    }
+    const QStringList prevM = Settings::instance().loadStringList("seen_movies.json");
+    const QStringList prevS = Settings::instance().loadStringList("seen_series.json");
+    const QSet<QString> prevMovie(prevM.begin(), prevM.end());
+    const QSet<QString> prevSeries(prevS.begin(), prevS.end());
+    // Só marca "recente" havendo base anterior (senão a 1ª carga marcaria tudo).
+    m_recentMovieNames = curMovie;
+    if (prevMovie.isEmpty()) m_recentMovieNames.clear(); else m_recentMovieNames.subtract(prevMovie);
+    m_recentSeriesNames = curSeries;
+    if (prevSeries.isEmpty()) m_recentSeriesNames.clear(); else m_recentSeriesNames.subtract(prevSeries);
+    // Persiste a base atual DEPOIS da UI pintar (tira a gravação de ~22 mil
+    // nomes do caminho crítico — o conteúdo aparece mais rápido após recarregar).
+    const QStringList saveM(curMovie.begin(), curMovie.end());
+    const QStringList saveS(curSeries.begin(), curSeries.end());
+    QTimer::singleShot(0, this, [saveM, saveS]{
+        Settings::instance().saveStringList("seen_movies.json", saveM);
+        Settings::instance().saveStringList("seen_series.json", saveS);
+    });
+}
+
+QVariantList ChannelManager::recentMovies(int limit) const {
+    QVariantList out;
+    if (!m_recentMovieNames.isEmpty()) {
+        for (const auto& c : m_channels) {
+            if (c.type != QStringLiteral("movie")) continue;
+            if (!m_recentMovieNames.contains(c.name)) continue;
+            QVariantMap m; m["id"] = c.id; m["name"] = c.name; m["logo"] = c.logo;
+            out.push_back(m);
+            if (limit > 0 && out.size() >= limit) break;
+        }
+    }
+    if (out.isEmpty()) {
+        const QString cat = releasesCategory(QStringLiteral("movie"));
+        if (!cat.isEmpty()) return moviesInCategory(cat, limit);
+    }
+    return out;
+}
+
+QVariantList ChannelManager::recentSeries(int limit) const {
+    QVariantList out;
+    QSet<QString> added;
+    if (!m_recentSeriesNames.isEmpty()) {
+        for (const auto& c : m_channels) {
+            if (c.type != QStringLiteral("series")) continue;
+            if (!m_recentSeriesNames.contains(c.seriesName)) continue;
+            if (added.contains(c.seriesName)) continue;
+            added.insert(c.seriesName);
+            QVariantMap m; m["name"] = c.seriesName; m["poster"] = c.logo; m["category"] = c.group;
+            out.push_back(m);
+            if (limit > 0 && out.size() >= limit) break;
+        }
+    }
+    if (out.isEmpty()) {
+        const QString cat = releasesCategory(QStringLiteral("series"));
+        if (!cat.isEmpty()) {
+            const QVariantList all = seriesInCategory(cat);
+            return (limit > 0) ? all.mid(0, limit) : all;
+        }
+    }
+    return out;
+}
+
+// ---------------------------------------------------------------------------
+// Retomar reprodução / Continuar assistindo
+// ---------------------------------------------------------------------------
+void ChannelManager::loadResume() {
+    m_resume.clear();
+    QFile f(Settings::appDir() + QStringLiteral("/resume.json"));
+    if (!f.open(QIODevice::ReadOnly)) return;
+    const QJsonArray arr = QJsonDocument::fromJson(f.readAll()).array();
+    for (const QJsonValue& v : arr) {
+        const QJsonObject o = v.toObject();
+        Resume r;
+        r.id = o.value("id").toString();
+        r.name = o.value("name").toString();
+        r.logo = o.value("logo").toString();
+        r.pos = o.value("pos").toDouble();
+        r.dur = o.value("dur").toDouble();
+        if (!r.id.isEmpty()) m_resume.push_back(r);
+    }
+}
+
+void ChannelManager::persistResume() {
+    QJsonArray arr;
+    for (const Resume& r : m_resume) {
+        QJsonObject o;
+        o["id"] = r.id; o["name"] = r.name; o["logo"] = r.logo;
+        o["pos"] = r.pos; o["dur"] = r.dur;
+        arr.append(o);
+    }
+    QFile f(Settings::appDir() + QStringLiteral("/resume.json"));
+    if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        f.write(QJsonDocument(arr).toJson(QJsonDocument::Compact));
+}
+
+void ChannelManager::saveResume(const QString& id, const QString& name,
+                                const QString& logo, double posSec, double durSec) {
+    if (id.isEmpty() || posSec < 5) return;             // muito no início: ignora
+    // Remove entrada anterior do mesmo título.
+    for (int i = 0; i < m_resume.size(); ++i)
+        if (m_resume[i].id == id) { m_resume.removeAt(i); break; }
+    // Se já assistiu quase tudo (>95%), não guarda (considera concluído).
+    if (durSec > 0 && posSec > durSec * 0.95) { persistResume(); return; }
+    Resume r; r.id = id; r.name = name; r.logo = logo; r.pos = posSec; r.dur = durSec;
+    m_resume.prepend(r);
+    while (m_resume.size() > 30) m_resume.removeLast();
+    persistResume();
+}
+
+double ChannelManager::resumePosition(const QString& id) const {
+    for (const Resume& r : m_resume)
+        if (r.id == id) return (r.dur > 0 && r.pos > r.dur * 0.95) ? 0.0 : r.pos;
+    return 0.0;
+}
+
+QVariantList ChannelManager::recentlyPlayed(int limit) const {
+    QVariantList out;
+    for (const Resume& r : m_resume) {
+        QVariantMap m;
+        m["id"] = r.id; m["name"] = r.name; m["logo"] = r.logo;
+        m["position"] = r.pos; m["duration"] = r.dur;
+        out.push_back(m);
+        if (limit > 0 && out.size() >= limit) break;
+    }
+    return out;
+}
+
+// ---------------------------------------------------------------------------
+// Controle parental
+// ---------------------------------------------------------------------------
+static bool catIsAdult(const QString& name) {
+    static const QStringList keys = {
+        QStringLiteral("adult"), QStringLiteral("adulto"), QStringLiteral("xxx"),
+        QStringLiteral("+18"), QStringLiteral("18+"), QStringLiteral("porn"),
+        QStringLiteral("erotic"), QStringLiteral("erótic"), QStringLiteral("sex")
+    };
+    const QString g = name.toLower();
+    for (const QString& k : keys) if (g.contains(k)) return true;
+    return false;
+}
+
+bool ChannelManager::isAdultCategory(const QString& name) const { return catIsAdult(name); }
+
+bool ChannelManager::isCategoryLocked(const QString& name) const {
+    if (m_pin.isEmpty()) return false;                  // sem PIN, nada é bloqueado
+    if (m_unlockedSession.contains(name)) return false; // liberada nesta sessão
+    return m_lockedCats.contains(name) || (m_autoAdult && catIsAdult(name));
+}
+
+bool ChannelManager::checkPin(const QString& pin) const {
+    return !m_pin.isEmpty() && Settings::encode(pin) == m_pin;
+}
+
+void ChannelManager::refreshParentalModels() {
+    // Categorias não são mais ocultadas — basta notificar a UI para reavaliar
+    // o estado de cadeado (isCategoryLocked) de cada categoria.
+    emit parentalChanged();
+}
+
+bool ChannelManager::setPin(const QString& oldPin, const QString& newPin) {
+    if (!m_pin.isEmpty() && Settings::encode(oldPin) != m_pin) return false;
+    if (newPin.isEmpty()) return false;
+    m_pin = Settings::encode(newPin);
+    Settings::instance().set("parental/pin", m_pin);
+    Settings::instance().sync();
+    refreshParentalModels();
+    return true;
+}
+
+bool ChannelManager::clearPin(const QString& pin) {
+    if (!checkPin(pin)) return false;
+    m_pin.clear();
+    Settings::instance().set("parental/pin", QString());
+    Settings::instance().sync();
+    refreshParentalModels();
+    return true;
+}
+
+void ChannelManager::resetPin() {
+    // Recuperação (esqueci o PIN): a verificação da identidade é feita na UI
+    // (senha da conta) antes de chamar aqui.
+    m_pin.clear();
+    Settings::instance().set("parental/pin", QString());
+    Settings::instance().sync();
+    refreshParentalModels();
+}
+
+void ChannelManager::setAutoAdult(bool on) {
+    if (m_autoAdult == on) return;
+    m_autoAdult = on;
+    Settings::instance().set("parental/auto_adult", on);
+    Settings::instance().sync();
+    refreshParentalModels();
+}
+
+void ChannelManager::toggleCategoryLock(const QString& name) {
+    if (m_lockedCats.contains(name)) m_lockedCats.removeAll(name);
+    else m_lockedCats.append(name);
+    Settings::instance().saveStringList("parental_locked.json", m_lockedCats);
+    refreshParentalModels();
+}
+
+void ChannelManager::unlockSession(const QString& name) {
+    m_unlockedSession.insert(name);
+    refreshParentalModels();
+}
+
+void ChannelManager::unlockAllSession() {
+    for (const auto& c : m_channels) m_unlockedSession.insert(c.group);
+    refreshParentalModels();
+}
+
+QVariantList ChannelManager::allCategories() const {
+    QVariantList out;
+    QSet<QString> seen;
+    for (const auto& c : m_channels) {
+        const QString key = c.type + QStringLiteral("|") + c.group;
+        if (seen.contains(key)) continue;
+        seen.insert(key);
+        QVariantMap m;
+        m["name"]   = c.group;
+        m["type"]   = c.type;   // "live" | "movie" | "series"
+        m["locked"] = m_lockedCats.contains(c.group);
+        m["adult"]  = catIsAdult(c.group);
+        out.push_back(m);
+    }
+    return out;
+}
+
 Channel ChannelManager::channelById(const QString& id) const {
-    const int idx = m_model->indexOfId(id);
-    if (idx >= 0) return m_model->channelAt(idx);
-    for (const auto& c : m_channels) if (c.id == id) return c; // fallback (id filtrado)
+    auto it = m_idIndex.constFind(id);
+    if (it != m_idIndex.constEnd()) return m_channels[it.value()];
     return {};
 }
 

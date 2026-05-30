@@ -15,6 +15,11 @@ StreamPlayer::StreamPlayer(ChannelManager* channels, PrefetchEngine* prefetch, Q
     m_stallWatchdog->setSingleShot(true);
     connect(m_stallWatchdog, &QTimer::timeout, this, [this]{
         if (!m_mpv || m_current.url.isEmpty()) return;
+        // SÓ para canais AO VIVO. Em VOD (filme/episódio) um stall de rede não
+        // deve forçar reload — isso reiniciaria o título do zero e perderia a
+        // posição. O mpv reconecta sozinho (reconnect lavf); se a URL morreu,
+        // o EOF reason=4 marca o erro.
+        if (!currentIsLive()) return;
         // Reload no canal atual: força o demuxer a abrir conexão nova.
         // Limita o número de retries pra não rodar em loop em canal morto.
         if (m_reloadAttempts >= 3) {
@@ -73,11 +78,19 @@ void StreamPlayer::attach(QObject* mpvObject) {
     // estado de erro pra UI mostrar "Canal indisponível".
     connect(m_mpv, &MpvObject::endFile, this, [this](int reason) {
         if (reason == 4) {
-            // Falha explícita do servidor (HTTP error). Não adianta retry
-            // imediato — se ele esgotar via watchdog, vai virar hasError lá.
+            // Falha explícita do servidor (HTTP error).
+            // VOD: marca erro AGORA (não há watchdog religando p/ VOD) -> a UI
+            // mostra "Conteúdo indisponível" em vez de "Carregando" eterno.
+            // Live: deixa o watchdog decidir (pode ser corte transitório da CDN).
+            if (!currentIsLive() && !m_hasError) { m_hasError = true; emit hasErrorChanged(); }
             return;
         }
         if (reason != 0) return;             // 0 = MPV_END_FILE_REASON_EOF
+        // FIM NATURAL:
+        //  - VOD (filme/episódio): terminou de verdade -> avisa a UI (encerra o
+        //    player). NÃO religa (senão o título reiniciava em loop).
+        //  - Live: EOF é a CDN cortando a conexão -> religa imediatamente.
+        if (!currentIsLive()) { emit endReached(); return; }
         if (!m_mpv || m_current.url.isEmpty()) return;
         if (m_reloadAttempts >= 5) {
             if (!m_hasError) { m_hasError = true; emit hasErrorChanged(); }
@@ -108,12 +121,20 @@ void StreamPlayer::playChannel(const Channel& c) {
     m_mpv->command(QStringList{"loadfile", c.url, "replace"});
 
     m_current = c;
-    auto* model = qobject_cast<ChannelListModel*>(m_channels->model());
-    if (model) {
-        model->setCurrentId(c.id);
-        m_currentRow = model->indexOfId(c.id);
+    // Destaque na grade + histórico + prefetch de vizinhos são conceitos de TV
+    // AO VIVO. Em VOD isso poluiria o histórico de canais e destacaria nada
+    // (o id do filme não está no modelo live). O "continuar assistindo" de VOD
+    // é tratado à parte (saveResume/recentlyPlayed).
+    if (c.type == QLatin1String("live")) {
+        auto* model = qobject_cast<ChannelListModel*>(m_channels->model());
+        if (model) {
+            model->setCurrentId(c.id);
+            m_currentRow = model->indexOfId(c.id);
+        }
+        m_channels->pushHistory(c.id);
+    } else {
+        m_currentRow = -1;
     }
-    m_channels->pushHistory(c.id);
     emit currentChanged();
 }
 
@@ -140,6 +161,17 @@ void StreamPlayer::prev() {
     if (!model || model->count() == 0) return;
     int row = (m_currentRow <= 0 ? model->count() : m_currentRow) - 1;
     playChannel(model->channelAt(row));
+}
+
+void StreamPlayer::stop() {
+    m_iframeTimer->stop();
+    m_stallWatchdog->stop();
+    m_reloadAttempts = 0;
+    m_current = Channel{};      // limpa: o watchdog/EOF não vão religar (checam url vazia)
+    m_currentRow = -1;
+    if (m_hasError) { m_hasError = false; emit hasErrorChanged(); }
+    if (m_mpv) m_mpv->command(QStringList{"stop"});
+    emit currentChanged();
 }
 
 void StreamPlayer::playNumber(int channelNumber) {

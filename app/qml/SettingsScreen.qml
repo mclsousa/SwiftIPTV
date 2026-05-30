@@ -10,12 +10,27 @@ import SwiftIPTV
 Item {
     id: root
     anchors.fill: parent
+    opacity: 0
+    NumberAnimation on opacity { from: 0; to: 1; duration: 380; easing.type: Easing.OutCubic }
 
     // MAC do dispositivo (calculado uma vez ao abrir a tela).
     readonly property string mac: app.macAddress()
 
-    // Fundo escuro sobre o pattern hexagonal global
-    Rectangle { anchors.fill: parent; color: Theme.bg; opacity: 0.85 }
+    // Controle parental
+    property bool parentalOpen: false
+    property bool parentalAuthed: false
+    property bool parentalRecover: false
+    property var  parentalCats: []
+    function openParental() {
+        root.parentalAuthed = !channels.parentalHasPin
+        root.parentalRecover = false
+        root.parentalCats = channels.allCategories()
+        root.parentalOpen = true
+    }
+    function refreshParentalCats() { root.parentalCats = channels.allCategories() }
+
+    // Leve escurecida sobre a aurora (mantém legibilidade sem esconder o fundo)
+    Rectangle { anchors.fill: parent; color: Theme.bg; opacity: 0.45 }
 
     // ───────── Cabeçalho: voltar + título ─────────
     Item {
@@ -89,10 +104,16 @@ Item {
             }
         }
         OptionButton {
+            iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/lock.svg"
+            label: "Controle Parental"
+            sub: channels.parentalHasPin ? "Ativo — categorias protegidas" : "Proteger categorias adultas/específicas"
+            onClicked: root.openParental()
+        }
+        OptionButton {
             iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/info.svg"
             label: "Sobre o App"
-            sub: "DIGTV+ v" + app.appVersion
-            onClicked: Window.window.notify("DIGTV+ v" + app.appVersion)
+            sub: "SwiftIPTV v" + app.appVersion
+            onClicked: Window.window.notify("SwiftIPTV v" + app.appVersion)
         }
         OptionButton {
             iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/logout.svg"
@@ -124,8 +145,235 @@ Item {
         }
         Text {
             Layout.alignment: Qt.AlignHCenter
-            text: "Endereço MAC: " + (root.mac ? root.mac : "—") + "    •    DIGTV+ v" + app.appVersion
+            text: "Endereço MAC: " + (root.mac ? root.mac : "—") + "    •    SwiftIPTV v" + app.appVersion
             color: Theme.subtext; font.pixelSize: 12
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // Overlay: Controle Parental
+    // ─────────────────────────────────────────────
+    Rectangle {
+        anchors.fill: parent
+        visible: root.parentalOpen
+        z: 50
+        color: "#cc000000"
+        MouseArea { anchors.fill: parent }   // bloqueia interação por baixo
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 560
+            height: Math.min(parent.height - 70, 680)
+            radius: 16; color: Theme.panel; border.color: Theme.border
+
+            ColumnLayout {
+                anchors.fill: parent; anchors.margins: 22; spacing: 14
+
+                // Cabeçalho
+                RowLayout {
+                    Layout.fillWidth: true; spacing: 10
+                    Image { source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/lock.svg"
+                        sourceSize.width: 22; sourceSize.height: 22 }
+                    Text { Layout.fillWidth: true; text: "Controle Parental"
+                        color: Theme.text; font.pixelSize: 19; font.bold: true }
+                    Rectangle {
+                        width: 34; height: 34; radius: 17
+                        color: xMouse.containsMouse ? Theme.panel2 : "transparent"
+                        Text { anchors.centerIn: parent; text: "×"; color: Theme.text; font.pixelSize: 22 }
+                        MouseArea { id: xMouse; anchors.fill: parent; hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor; onClicked: root.parentalOpen = false }
+                    }
+                }
+
+                // ===== Entrada de PIN (há PIN e ainda não autenticou) =====
+                ColumnLayout {
+                    visible: !root.parentalAuthed
+                    Layout.fillWidth: true; spacing: 12
+                    Text { text: "Digite o PIN para gerenciar as proteções."
+                        color: Theme.subtext; font.pixelSize: 14 }
+                    TextField {
+                        id: unlockPin
+                        Layout.preferredWidth: 160
+                        echoMode: TextInput.Password
+                        inputMethodHints: Qt.ImhDigitsOnly
+                        maximumLength: 4
+                        color: Theme.text; font.pixelSize: 18
+                        horizontalAlignment: TextInput.AlignHCenter
+                        background: Rectangle { radius: 10; color: Theme.panel2; border.color: Theme.border }
+                        topPadding: 12; bottomPadding: 12
+                    }
+                    Text { id: unlockErr; text: ""; visible: text !== ""; color: Theme.bad; font.pixelSize: 13 }
+                    RowLayout {
+                        spacing: 10
+                        AppButton {
+                            kind: "primary"; text: "Entrar"; fontSize: 13
+                            onClicked: {
+                                if (channels.checkPin(unlockPin.text)) { root.parentalAuthed = true; unlockErr.text = ""; unlockPin.text = "" }
+                                else unlockErr.text = "PIN incorreto."
+                            }
+                        }
+                        AppButton {
+                            kind: "ghost"; text: "Esqueci o PIN"; fontSize: 13
+                            onClicked: { root.parentalRecover = true; unlockErr.text = "" }
+                        }
+                    }
+                    // Recuperação: confirma a senha da conta e redefine o PIN.
+                    ColumnLayout {
+                        visible: root.parentalRecover
+                        Layout.fillWidth: true; spacing: 8
+                        Text { Layout.fillWidth: true; wrapMode: Text.WordWrap
+                            text: "Digite a senha da sua conta SwiftIPTV para redefinir o PIN."
+                            color: Theme.subtext; font.pixelSize: 13 }
+                        TextField {
+                            id: recAcc; Layout.preferredWidth: 240
+                            echoMode: TextInput.Password
+                            placeholderText: "Senha da conta"; placeholderTextColor: Theme.subtext
+                            color: Theme.text
+                            background: Rectangle { radius: 10; color: Theme.panel2; border.color: Theme.border }
+                            leftPadding: 14; topPadding: 11; bottomPadding: 11
+                        }
+                        Text { id: recAccErr; text: ""; visible: text !== ""; color: Theme.bad
+                            font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                        AppButton {
+                            kind: "primary"; text: "Redefinir PIN"; fontSize: 13
+                            onClicked: {
+                                var saved = auth.rememberedPassword()
+                                if (saved === "") recAccErr.text = "Senha não disponível. Faça login marcando \"Lembrar senha\"."
+                                else if (recAcc.text === saved) {
+                                    channels.resetPin(); recAcc.text = ""; recAccErr.text = ""
+                                    root.parentalRecover = false; root.parentalAuthed = true
+                                    Window.window.notify("PIN redefinido. Defina um novo abaixo.")
+                                } else recAccErr.text = "Senha da conta incorreta."
+                            }
+                        }
+                    }
+                }
+
+                // ===== Gestão (autenticado ou sem PIN) =====
+                ColumnLayout {
+                    visible: root.parentalAuthed
+                    Layout.fillWidth: true; Layout.fillHeight: true; spacing: 12
+
+                    Text { text: channels.parentalHasPin ? "Trocar PIN" : "Definir PIN"
+                        color: Theme.text; font.pixelSize: 15; font.bold: true }
+                    RowLayout {
+                        Layout.fillWidth: true; spacing: 10
+                        TextField {
+                            id: curPin; visible: channels.parentalHasPin
+                            Layout.fillWidth: true
+                            placeholderText: "PIN atual"; placeholderTextColor: Theme.subtext
+                            echoMode: TextInput.Password; inputMethodHints: Qt.ImhDigitsOnly; maximumLength: 4
+                            color: Theme.text
+                            background: Rectangle { radius: 10; color: Theme.panel2; border.color: Theme.border }
+                            leftPadding: 14; topPadding: 11; bottomPadding: 11
+                        }
+                        TextField {
+                            id: newPin; Layout.fillWidth: true
+                            placeholderText: "Novo PIN (4 dígitos)"; placeholderTextColor: Theme.subtext
+                            echoMode: TextInput.Password; inputMethodHints: Qt.ImhDigitsOnly; maximumLength: 4
+                            color: Theme.text
+                            background: Rectangle { radius: 10; color: Theme.panel2; border.color: Theme.border }
+                            leftPadding: 14; topPadding: 11; bottomPadding: 11
+                        }
+                        TextField {
+                            id: confPin; Layout.fillWidth: true
+                            placeholderText: "Confirmar"; placeholderTextColor: Theme.subtext
+                            echoMode: TextInput.Password; inputMethodHints: Qt.ImhDigitsOnly; maximumLength: 4
+                            color: Theme.text
+                            background: Rectangle { radius: 10; color: Theme.panel2; border.color: Theme.border }
+                            leftPadding: 14; topPadding: 11; bottomPadding: 11
+                        }
+                    }
+                    Text { id: pinMsg; text: ""; visible: text !== ""; font.pixelSize: 13 }
+                    RowLayout {
+                        spacing: 10
+                        AppButton {
+                            kind: "primary"; text: "Salvar PIN"; fontSize: 13
+                            onClicked: {
+                                if (newPin.text.length < 4) { pinMsg.color = Theme.bad; pinMsg.text = "O PIN deve ter 4 dígitos."; return }
+                                if (newPin.text !== confPin.text) { pinMsg.color = Theme.bad; pinMsg.text = "Os PINs não conferem."; return }
+                                if (channels.setPin(curPin.text, newPin.text)) {
+                                    pinMsg.color = Theme.ok; pinMsg.text = "PIN salvo."
+                                    curPin.text = ""; newPin.text = ""; confPin.text = ""
+                                } else { pinMsg.color = Theme.bad; pinMsg.text = "PIN atual incorreto." }
+                            }
+                        }
+                        AppButton {
+                            kind: "secondary"; text: "Remover PIN"; fontSize: 13
+                            visible: channels.parentalHasPin
+                            onClicked: {
+                                if (channels.clearPin(curPin.text)) { pinMsg.color = Theme.ok; pinMsg.text = "PIN removido."; curPin.text = "" }
+                                else { pinMsg.color = Theme.bad; pinMsg.text = "Informe o PIN atual para remover." }
+                            }
+                        }
+                    }
+
+                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+
+                    // Auto-adulto
+                    RowLayout {
+                        Layout.fillWidth: true; spacing: 12
+                        Text { Layout.fillWidth: true; text: "Bloquear categorias adultas automaticamente"
+                            color: Theme.text; font.pixelSize: 14; wrapMode: Text.WordWrap }
+                        Rectangle {
+                            width: 48; height: 26; radius: 13
+                            color: channels.parentalAutoAdult ? Theme.brand : Theme.panel2
+                            border.color: Theme.border
+                            Rectangle {
+                                width: 20; height: 20; radius: 10; color: "white"
+                                anchors.verticalCenter: parent.verticalCenter
+                                x: channels.parentalAutoAdult ? parent.width - 23 : 3
+                                Behavior on x { NumberAnimation { duration: 120 } }
+                            }
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                onClicked: { channels.setAutoAdult(!channels.parentalAutoAdult); root.refreshParentalCats() } }
+                        }
+                    }
+
+                    AppButton {
+                        kind: "secondary"; fontSize: 13
+                        text: "Liberar conteúdo bloqueado nesta sessão"
+                        onClicked: { channels.unlockAllSession(); Window.window.notify("Conteúdo liberado nesta sessão") }
+                    }
+
+                    Text { text: "Bloquear categorias específicas"; color: Theme.text
+                        font.pixelSize: 15; font.bold: true }
+
+                    ListView {
+                        Layout.fillWidth: true; Layout.fillHeight: true
+                        clip: true; model: root.parentalCats; spacing: 6
+                        boundsBehavior: Flickable.StopAtBounds
+                        ScrollBar.vertical: ScrollBar { }
+                        delegate: Rectangle {
+                            id: catDel
+                            required property var modelData
+                            width: ListView.view.width; height: 46; radius: 8; color: Theme.panel2
+                            RowLayout {
+                                anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 10; spacing: 10
+                                ColumnLayout {
+                                    Layout.fillWidth: true; spacing: 0
+                                    Text { Layout.fillWidth: true; text: catDel.modelData.name; color: Theme.text
+                                        font.pixelSize: 13; font.bold: true; elide: Text.ElideRight }
+                                    Text { text: (catDel.modelData.type === "live" ? "Ao Vivo" : (catDel.modelData.type === "movie" ? "Filmes" : "Séries"))
+                                           + (catDel.modelData.adult ? "  ·  adulto" : "")
+                                        color: catDel.modelData.adult ? Theme.warn : Theme.subtext; font.pixelSize: 11 }
+                                }
+                                Rectangle {
+                                    implicitWidth: lkTxt.implicitWidth + 24; height: 30; radius: 15
+                                    color: catDel.modelData.locked ? Theme.brand : "transparent"
+                                    border.color: catDel.modelData.locked ? Theme.brand : Theme.border
+                                    Text { id: lkTxt; anchors.centerIn: parent
+                                        text: catDel.modelData.locked ? "Bloqueada" : "Livre"
+                                        color: catDel.modelData.locked ? Theme.buttonText : Theme.subtext
+                                        font.pixelSize: 12; font.bold: true }
+                                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                        onClicked: { channels.toggleCategoryLock(catDel.modelData.name); root.refreshParentalCats() } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 

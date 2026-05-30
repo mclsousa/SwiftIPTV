@@ -35,10 +35,10 @@ void AppController::setScreen(const QString& s) {
 void AppController::navigate(const QString& screen) { setScreen(screen); }
 
 void AppController::onLoginSuccess() {
-    const bool show = Settings::instance().get("dns_pc/show_dns_setup", true).toBool();
-    // Após o login (ou setup de DNS), o hub central é a tela "home" — o
-    // usuário escolhe TV ao Vivo / Filmes / Séries / Configurações daí.
-    setScreen(show ? "dns" : "home");
+    // Após o login vai direto para o hub "home". A otimização de DNS deixou de
+    // ser mostrada automaticamente (a pedido) — fica acessível em Configurações
+    // → "Otimizar Minha Conexão".
+    setScreen("home");
 }
 
 void AppController::saveWindow(int x, int y, int w, int h) {
