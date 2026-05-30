@@ -32,4 +32,11 @@ QtObject {
 
     // --- Texto sobre botões de destaque (roxo) ---
     readonly property color buttonText: "#ffffff"
+
+    // --- Botões estilo Netflix/HBO (escolha do usuário) ---
+    readonly property color btnPrimary:    "#ffffff"   // principal: branco
+    readonly property color btnPrimaryHi:   "#e6e6e6"   // hover
+    readonly property color btnPrimaryText: "#0a0a0a"   // texto/ícone escuros
+    readonly property color btnSec:         "#2A2A33"   // secundário: cinza escuro sólido
+    readonly property color btnSecHi:       "#3A3A47"   // hover
 }

@@ -9,6 +9,13 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.30 - 2026-05-29
+**Botões refeitos (escolha do usuário): branco/cinza sólido, cantos pequenos.**
+- `AppButton`: principal **branco** sólido (texto/ícone escuros), secundário
+  **cinza-escuro sólido** (`#2A2A33`, texto branco), **cantos pequenos (6px)**.
+  Substitui o secundário translúcido da v1.29 (que ficava apagado). Aplicado em
+  Home, TV ao Vivo, "Ver todas as categorias" e no painel de Controle Parental.
+
 ## v1.29 - 2026-05-29
 **Botões estilo HBO Max, continuar assistindo e ícones de canal nítidos.**
 

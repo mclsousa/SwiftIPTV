@@ -2,11 +2,11 @@ import QtQuick
 import QtQuick.Layouts
 import SwiftIPTV
 
-// Botão premium estilo HBO Max:
-//   kind "primary"   -> preenchido BRANCO, texto/ícone escuros (ação principal)
-//   kind "secondary" -> branco translúcido, texto/ícone brancos
+// Botão estilo Netflix/HBO (escolha do usuário):
+//   kind "primary"   -> BRANCO sólido, texto/ícone escuros (ação principal)
+//   kind "secondary" -> cinza escuro sólido, texto branco
 //   kind "ghost"     -> transparente, realça no hover
-// Ícone opcional à esquerda. Hover (leve zoom) e press (encolhe).
+// Cantos pequenos (quase retos). Ícone opcional à esquerda.
 // NÃO redeclara 'enabled' (usa o herdado de Item).
 Rectangle {
     id: btn
@@ -16,21 +16,21 @@ Rectangle {
     property int fontSize: 14
     signal clicked()
 
-    readonly property color fg: kind === "primary" ? "#0a0a0a" : Theme.text
+    readonly property color fg: kind === "primary" ? Theme.btnPrimaryText : Theme.text
 
-    implicitHeight: 48
-    implicitWidth: row.implicitWidth + (kind === "ghost" ? 24 : 44)
-    radius: height / 2
+    implicitHeight: 46
+    implicitWidth: row.implicitWidth + (kind === "ghost" ? 22 : 40)
+    radius: 6                                  // cantos bem menores
     opacity: btn.enabled ? 1.0 : 0.45
-    scale: m.pressed ? 0.97 : (m.containsMouse ? 1.02 : 1.0)
-    Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
+    scale: m.pressed ? 0.97 : 1.0
+    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
 
     color: {
-        if (kind === "primary")   return m.containsMouse ? "#e6e6e6" : "#ffffff"
-        if (kind === "secondary") return Qt.rgba(1, 1, 1, m.containsMouse ? 0.26 : 0.14)
+        if (kind === "primary")   return m.containsMouse ? Theme.btnPrimaryHi : Theme.btnPrimary
+        if (kind === "secondary") return m.containsMouse ? Theme.btnSecHi : Theme.btnSec
         return m.containsMouse ? Theme.panel2 : "transparent"   // ghost
     }
-    Behavior on color { ColorAnimation { duration: 130 } }
+    Behavior on color { ColorAnimation { duration: 120 } }
 
     RowLayout {
         id: row
