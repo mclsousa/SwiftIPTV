@@ -9,6 +9,25 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.42 - 2026-05-30
+**Otimizar conexão enxuto + Diagnóstico de Rede repaginado (jitter, termômetros, gráficos, saúde p/ assistir).**
+- **Otimizar sua conexão:** removida a estrela "Recomendado", removido o
+  "Não mostrar novamente" e o botão "Pular" virou **"Voltar"**.
+- **Diagnóstico — dados mais corretos:**
+  - **Velocidade** agora mede os **bytes realmente recebidos** (arquivo de 25 MB) e
+    reporta em **Mbps decimais** (como o provedor anuncia). Antes usava o
+    Content-Length mesmo quando o teste era abortado → valores fantasiosos.
+  - Novo **Jitter** (variação da latência) com ideal **< 10 ms**.
+  - **Saúde** virou uma **nota contínua 0–100** ponderada (velocidade, latência,
+    perda, jitter) em vez de 3 valores fixos.
+- **Saúde da internet para assistir:** painel com veredito (4K / Full HD / HD / SD /
+  instável) com base em velocidade, perda e jitter.
+- **Termômetros (gauges)** para latência, jitter, velocidade e perda do teste atual.
+- **Gráficos comparando os testes** (histórico): barras de Saúde, Velocidade e Latência.
+- **Perda de pacotes** mostra o ideal **0%**.
+- **Histórico** agora fica numa **caixa rolável** (igual ao relatório) — não corta mais
+  na tela; ganhou a coluna de Jitter.
+
 ## v1.41 - 2026-05-30
 **Remove a moldura do pôster no banner da Home.**
 - Tirado o halo/borda em volta da capa do filme em destaque (sem desfoque, virava

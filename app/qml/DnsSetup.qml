@@ -45,11 +45,7 @@ Item {
                         }
                         ColumnLayout {
                             spacing: 2
-                            RowLayout {
-                                spacing: 6
-                                Text { text: modelData.name; color: Theme.text; font.pixelSize: 15; font.bold: true }
-                                Text { visible: modelData.recommended; text: "⭐ Recomendado"; color: Theme.warn; font.pixelSize: 12 }
-                            }
+                            Text { text: modelData.name; color: Theme.text; font.pixelSize: 15; font.bold: true }
                             Text {
                                 visible: modelData.primary !== ""
                                 text: modelData.primary + (modelData.secondary !== "" ? "  /  " + modelData.secondary : "")
@@ -63,30 +59,18 @@ Item {
             }
         }
 
-        CheckBox {
-            id: dontShow
-            text: "Não mostrar novamente"
-            contentItem: Text { text: dontShow.text; color: Theme.subtext; font.pixelSize: 13
-                leftPadding: dontShow.indicator.width + 6; verticalAlignment: Text.AlignVCenter }
-            indicator: Rectangle {
-                width: 18; height: 18; radius: 4; y: parent.height/2 - 9
-                color: dontShow.checked ? Theme.brand : Theme.panel2; border.color: Theme.border
-                Text { anchors.centerIn: parent; text: "✓"; color: "white"; visible: dontShow.checked; font.pixelSize: 12 }
-            }
-        }
-
         RowLayout {
             Layout.fillWidth: true; spacing: 10; Layout.topMargin: 6
             Button {
-                text: "Pular"
-                onClicked: dnsSetup.skip(dontShow.checked)
+                text: "Voltar"
+                onClicked: app.navigate(auth.authenticated ? "settings" : "home")
                 contentItem: Text { text: parent.text; color: Theme.subtext; font.pixelSize: 14; horizontalAlignment: Text.AlignHCenter }
                 background: Rectangle { radius: 10; color: Theme.panel2; border.color: Theme.border }
                 Layout.preferredWidth: 120; topPadding: 12; bottomPadding: 12
             }
             Button {
                 text: "Aplicar e Assistir"
-                onClicked: dnsSetup.applyAndWatch(chosen, dontShow.checked)
+                onClicked: dnsSetup.applyAndWatch(chosen, false)
                 contentItem: Text { text: parent.text; color: "white"; font.pixelSize: 14; font.bold: true; horizontalAlignment: Text.AlignHCenter }
                 background: Rectangle { radius: 10; color: parent.down ? Theme.brand2 : Theme.brand }
                 Layout.fillWidth: true; topPadding: 12; bottomPadding: 12

@@ -8,24 +8,136 @@ Item {
     id: root
     anchors.fill: parent
     readonly property var e: diag.engine
-
-    // Card reutilizável (inline component — precisa estar no nível raiz do arquivo)
-    component Card: Rectangle {
-        property string title: ""; property string value: ""; property color vcolor: Theme.text
-        Layout.fillWidth: true; Layout.preferredHeight: 78
-        radius: 12; color: Theme.panel; border.color: Theme.border
-        ColumnLayout {
-            anchors.fill: parent; anchors.margins: 12; spacing: 4
-            Text { text: title; color: Theme.subtext; font.pixelSize: 11 }
-            Text { text: value === "" ? "—" : value; color: vcolor; font.pixelSize: 16; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
-        }
-    }
+    readonly property bool ready: e.healthLevel !== "—" && !e.running
 
     function levelColor(lvl) {
         if (lvl === "OK")   return Theme.ok
         if (lvl === "WARN") return Theme.warn
         if (lvl === "BAD")  return Theme.bad
         return Theme.subtext
+    }
+    // Arrays do histórico (mais antigo -> mais novo) p/ os gráficos comparativos.
+    function histVals(key) {
+        var out = []; var h = diag.history
+        for (var i = h.length - 1; i >= 0; i--) { var v = Number(h[i][key]); out.push(isNaN(v) ? 0 : v) }
+        return out
+    }
+    function maxOf(arr, floor) {
+        var m = floor || 1; for (var i = 0; i < arr.length; i++) if (arr[i] > m) m = arr[i]; return m
+    }
+
+    // ---- Card de métrica (com dica opcional de "ideal") ----
+    component Card: Rectangle {
+        property string title: ""; property string value: ""; property color vcolor: Theme.text; property string hint: ""
+        Layout.fillWidth: true; Layout.preferredHeight: 86
+        radius: 12; color: Theme.panel; border.color: Theme.border
+        ColumnLayout {
+            anchors.fill: parent; anchors.margins: 12; spacing: 3
+            Text { text: title; color: Theme.subtext; font.pixelSize: 11 }
+            Text { text: value === "" ? "—" : value; color: vcolor; font.pixelSize: 16; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
+            Text { visible: hint !== ""; text: hint; color: Theme.subtext; font.pixelSize: 9 }
+        }
+    }
+
+    // ---- Termômetro (gauge semicircular) ----
+    component Gauge: Item {
+        id: g
+        property string label: ""
+        property real value: 0
+        property real maxValue: 100
+        property string unit: ""
+        property int decimals: 0
+        property real good: 0          // limiar "verde"
+        property real warn: 0          // limiar "amarelo"
+        property bool lowerIsBetter: true
+        property bool ready: false
+        property string hint: ""
+        Layout.fillWidth: true
+        Layout.preferredHeight: 138
+        function col() {
+            if (!g.ready) return Theme.subtext
+            if (g.lowerIsBetter) return g.value <= g.good ? Theme.ok : (g.value <= g.warn ? Theme.warn : Theme.bad)
+            return g.value >= g.good ? Theme.ok : (g.value >= g.warn ? Theme.warn : Theme.bad)
+        }
+        Rectangle { anchors.fill: parent; radius: 12; color: Theme.panel; border.color: Theme.border }
+        Canvas {
+            id: cv
+            anchors.fill: parent; anchors.margins: 8
+            onPaint: {
+                var ctx = getContext('2d'); ctx.reset()
+                var cx = width / 2, cy = height * 0.70, r = Math.min(width * 0.40, height * 0.52)
+                ctx.lineWidth = 11; ctx.lineCap = 'round'
+                ctx.beginPath(); ctx.strokeStyle = Theme.panel2
+                ctx.arc(cx, cy, r, Math.PI, 2 * Math.PI); ctx.stroke()
+                var frac = (g.ready && g.maxValue > 0) ? Math.max(0, Math.min(1, g.value / g.maxValue)) : 0
+                if (frac > 0) {
+                    ctx.beginPath(); ctx.strokeStyle = g.col()
+                    ctx.arc(cx, cy, r, Math.PI, Math.PI + Math.PI * frac); ctx.stroke()
+                }
+            }
+            onWidthChanged: requestPaint()
+            onHeightChanged: requestPaint()
+        }
+        Column {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom; anchors.bottomMargin: 14
+            spacing: 1
+            Text { anchors.horizontalCenter: parent.horizontalCenter
+                text: g.ready ? (g.value.toFixed(g.decimals) + " " + g.unit) : "—"
+                color: g.col(); font.pixelSize: 18; font.bold: true }
+            Text { anchors.horizontalCenter: parent.horizontalCenter; text: g.label; color: Theme.text; font.pixelSize: 12 }
+            Text { anchors.horizontalCenter: parent.horizontalCenter; visible: g.hint !== ""; text: g.hint; color: Theme.subtext; font.pixelSize: 9 }
+        }
+        onValueChanged: cv.requestPaint()
+        onReadyChanged: cv.requestPaint()
+        onMaxValueChanged: cv.requestPaint()
+        Component.onCompleted: cv.requestPaint()
+    }
+
+    // ---- Gráfico de barras (comparação entre testes) ----
+    component BarChart: Rectangle {
+        id: ch
+        property string title: ""
+        property var values: []
+        property real maxValue: 1
+        property string barColor: "#8B5CF6"
+        Layout.fillWidth: true
+        Layout.preferredHeight: 168
+        radius: 12; color: Theme.panel; border.color: Theme.border
+        ColumnLayout {
+            anchors.fill: parent; anchors.margins: 12; spacing: 6
+            Text { text: ch.title; color: Theme.text; font.pixelSize: 13; font.bold: true }
+            Canvas {
+                id: cnv
+                Layout.fillWidth: true; Layout.fillHeight: true
+                onPaint: {
+                    var ctx = getContext('2d'); ctx.reset()
+                    var vals = ch.values || []; var n = vals.length
+                    if (n === 0) {
+                        ctx.fillStyle = '#8b93a7'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center'
+                        ctx.fillText('Faça um teste para comparar', width / 2, height / 2); return
+                    }
+                    var bottom = height - 6, top = 16, pad = 4
+                    var avail = width - pad * 2
+                    var slot = avail / n, bw = Math.min(36, slot * 0.6)
+                    var mx = ch.maxValue > 0 ? ch.maxValue : 1
+                    for (var i = 0; i < n; i++) {
+                        var v = vals[i]; var frac = Math.max(0, Math.min(1, v / mx))
+                        var h = (bottom - top) * frac
+                        var x = pad + slot * i + (slot - bw) / 2
+                        ctx.fillStyle = ch.barColor
+                        ctx.fillRect(x, bottom - h, bw, h)
+                        ctx.fillStyle = '#cfd6e6'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'
+                        ctx.fillText('' + v, x + bw / 2, bottom - h - 3)
+                    }
+                }
+                onWidthChanged: requestPaint()
+                onHeightChanged: requestPaint()
+            }
+        }
+        onValuesChanged: cnv.requestPaint()
+        onMaxValueChanged: cnv.requestPaint()
+        Component.onCompleted: cnv.requestPaint()
     }
 
     Connections {
@@ -102,14 +214,70 @@ Item {
                     Card { title: "Tipo de rede"; value: e.netType }
                     Card { title: "Latência (média)"; value: e.latencyAvg > 0 ? e.latencyAvg.toFixed(0) + " ms" : ""
                         vcolor: e.latencyAvg===0 ? Theme.text : (e.latencyAvg<80?Theme.ok:(e.latencyAvg<200?Theme.warn:Theme.bad)) }
+                    Card { title: "Jitter"; hint: "ideal < 10 ms"
+                        value: root.ready ? e.jitter.toFixed(0) + " ms" : ""
+                        vcolor: !root.ready ? Theme.text : (e.jitter<10?Theme.ok:(e.jitter<30?Theme.warn:Theme.bad)) }
                     Card { title: "Velocidade"; value: e.speedMbps > 0 ? e.speedMbps.toFixed(1) + " Mbps" : ""
                         vcolor: e.speedMbps===0 ? Theme.text : (e.speedMbps>10?Theme.ok:(e.speedMbps>5?Theme.warn:Theme.bad)) }
-                    Card { title: "Perda de pacotes"; value: e.packetLoss.toFixed(1) + " %"
-                        vcolor: e.packetLoss<5?Theme.ok:(e.packetLoss<15?Theme.warn:Theme.bad) }
+                    Card { title: "Perda de pacotes"; hint: "ideal 0%"
+                        value: root.ready ? e.packetLoss.toFixed(1) + " %" : ""
+                        vcolor: !root.ready ? Theme.text : (e.packetLoss<2?Theme.ok:(e.packetLoss<10?Theme.warn:Theme.bad)) }
                     Card { title: "Localização"; value: (e.geoCity ? e.geoCity + " / " : "") + e.geoCountry }
                     Card { title: "ISP"; value: e.geoIsp }
                     Card { title: "VPN/Proxy"; value: e.vpnText; vcolor: e.vpnDetected ? Theme.warn : Theme.ok }
                 }
+            }
+
+            // ---- Saúde da internet PARA ASSISTIR ----
+            Rectangle {
+                Layout.fillWidth: true; radius: 12
+                color: Theme.panel; border.width: 2
+                border.color: root.ready ? levelColor(e.streamLevel) : Theme.border
+                Layout.preferredHeight: 78
+                RowLayout {
+                    anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 16; spacing: 14
+                    Rectangle {
+                        width: 46; height: 46; radius: 23
+                        color: "transparent"; border.width: 3
+                        border.color: root.ready ? levelColor(e.streamLevel) : Theme.border
+                        Image { anchors.centerIn: parent
+                            source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/tv.svg"
+                            sourceSize.width: 24; sourceSize.height: 24 }
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true; spacing: 2
+                        Text { text: "Saúde da internet para assistir"; color: Theme.subtext; font.pixelSize: 12 }
+                        Text { Layout.fillWidth: true
+                            text: root.ready ? e.streamText : "Faça um teste para avaliar"
+                            color: root.ready ? levelColor(e.streamLevel) : Theme.text
+                            font.pixelSize: 18; font.bold: true; elide: Text.ElideRight }
+                    }
+                }
+            }
+
+            // ---- Termômetros (resultado do teste atual) ----
+            Text { text: "Termômetros"; color: Theme.text; font.pixelSize: 14; font.bold: true }
+            RowLayout {
+                Layout.fillWidth: true; spacing: 12
+                Gauge { label: "Latência"; unit: "ms"; value: e.latencyAvg; maxValue: 300
+                    good: 80; warn: 200; lowerIsBetter: true; ready: root.ready }
+                Gauge { label: "Jitter"; unit: "ms"; value: e.jitter; maxValue: 80
+                    good: 10; warn: 30; lowerIsBetter: true; ready: root.ready; hint: "ideal < 10 ms" }
+                Gauge { label: "Velocidade"; unit: "Mbps"; decimals: 1; value: e.speedMbps; maxValue: 50
+                    good: 10; warn: 5; lowerIsBetter: false; ready: root.ready }
+                Gauge { label: "Perda"; unit: "%"; decimals: 1; value: e.packetLoss; maxValue: 10
+                    good: 0; warn: 2; lowerIsBetter: true; ready: root.ready; hint: "ideal 0%" }
+            }
+
+            // ---- Gráficos comparando os testes (histórico) ----
+            Text { text: "Comparação dos testes"; color: Theme.text; font.pixelSize: 14; font.bold: true }
+            RowLayout {
+                Layout.fillWidth: true; spacing: 12
+                BarChart { title: "Saúde (0–100)"; values: root.histVals("score"); maxValue: 100; barColor: "#8B5CF6" }
+                BarChart { title: "Velocidade (Mbps)"; values: root.histVals("speed")
+                    maxValue: root.maxOf(root.histVals("speed"), 20); barColor: "#22B8CF" }
+                BarChart { title: "Latência (ms)"; values: root.histVals("latency")
+                    maxValue: root.maxOf(root.histVals("latency"), 100); barColor: "#F59E0B" }
             }
 
             // ---- DNS A/B ----
@@ -204,37 +372,42 @@ Item {
                 }
             }
 
-            // ---- Histórico ----
+            // ---- Histórico (caixa rolável, igual ao relatório) ----
             Rectangle {
                 Layout.fillWidth: true; radius: 12; color: Theme.panel; border.color: Theme.border
-                Layout.preferredHeight: histCol.implicitHeight + 24
+                Layout.preferredHeight: 260
                 ColumnLayout {
-                    id: histCol
                     anchors.fill: parent; anchors.margins: 12; spacing: 6
                     Text { text: "Histórico (10 últimos)"; color: Theme.text; font.pixelSize: 14; font.bold: true }
                     RowLayout {
-                        Layout.fillWidth: true; spacing: 8
-                        Text { text: "Data/Hora"; color: Theme.subtext; font.pixelSize: 11; Layout.preferredWidth: 120 }
-                        Text { text: "IP"; color: Theme.subtext; font.pixelSize: 11; Layout.preferredWidth: 120 }
+                        Layout.fillWidth: true; spacing: 8; Layout.rightMargin: 12
+                        Text { text: "Data/Hora"; color: Theme.subtext; font.pixelSize: 11; Layout.preferredWidth: 110 }
                         Text { text: "ISP"; color: Theme.subtext; font.pixelSize: 11; Layout.fillWidth: true }
-                        Text { text: "Lat."; color: Theme.subtext; font.pixelSize: 11; Layout.preferredWidth: 60 }
-                        Text { text: "Vel."; color: Theme.subtext; font.pixelSize: 11; Layout.preferredWidth: 70 }
-                        Text { text: "Saúde"; color: Theme.subtext; font.pixelSize: 11; Layout.preferredWidth: 60 }
+                        Text { text: "Lat."; color: Theme.subtext; font.pixelSize: 11; Layout.preferredWidth: 56 }
+                        Text { text: "Jitter"; color: Theme.subtext; font.pixelSize: 11; Layout.preferredWidth: 56 }
+                        Text { text: "Vel."; color: Theme.subtext; font.pixelSize: 11; Layout.preferredWidth: 64 }
+                        Text { text: "Saúde"; color: Theme.subtext; font.pixelSize: 11; Layout.preferredWidth: 56 }
                     }
-                    Repeater {
-                        model: diag.history
+                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border; opacity: 0.6 }
+                    ListView {
+                        id: histList
+                        Layout.fillWidth: true; Layout.fillHeight: true
+                        clip: true; model: diag.history; spacing: 4
+                        boundsBehavior: Flickable.StopAtBounds
+                        ScrollBar.vertical: ScrollBar { }
                         delegate: RowLayout {
                             required property var modelData
-                            Layout.fillWidth: true; spacing: 8
-                            Text { text: modelData.datetime; color: Theme.text; font.pixelSize: 12; Layout.preferredWidth: 120 }
-                            Text { text: modelData.ip; color: Theme.text; font.pixelSize: 12; Layout.preferredWidth: 120 }
-                            Text { text: modelData.isp; color: Theme.text; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true }
-                            Text { text: modelData.latency + " ms"; color: Theme.text; font.pixelSize: 12; Layout.preferredWidth: 60 }
-                            Text { text: modelData.speed + " Mb"; color: Theme.text; font.pixelSize: 12; Layout.preferredWidth: 70 }
-                            Text { text: modelData.health; color: levelColor(modelData.health); font.pixelSize: 12; Layout.preferredWidth: 60 }
+                            width: histList.width - 12; spacing: 8
+                            Text { text: modelData.datetime; color: Theme.text; font.pixelSize: 12; Layout.preferredWidth: 110 }
+                            Text { text: modelData.isp ? modelData.isp : "—"; color: Theme.text; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true }
+                            Text { text: modelData.latency + " ms"; color: Theme.text; font.pixelSize: 12; Layout.preferredWidth: 56 }
+                            Text { text: (modelData.jitter ? modelData.jitter : "—") + " ms"; color: Theme.text; font.pixelSize: 12; Layout.preferredWidth: 56 }
+                            Text { text: modelData.speed + " Mb"; color: Theme.text; font.pixelSize: 12; Layout.preferredWidth: 64 }
+                            Text { text: modelData.health; color: levelColor(modelData.health); font.pixelSize: 12; font.bold: true; Layout.preferredWidth: 56 }
                         }
+                        Text { anchors.centerIn: parent; visible: histList.count === 0
+                            text: "Nenhum diagnóstico salvo ainda."; color: Theme.subtext; font.pixelSize: 12 }
                     }
-                    Text { visible: diag.history.length===0; text: "Nenhum diagnóstico salvo ainda."; color: Theme.subtext; font.pixelSize: 12 }
                 }
             }
         }
