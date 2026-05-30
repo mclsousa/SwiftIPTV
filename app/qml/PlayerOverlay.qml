@@ -291,24 +291,24 @@ Item {
         }
     }
 
-    // Botão de controle: quadrado arredondado escuro sólido, ícone branco
-    // (estilo da referência enviada pelo usuário).
+    // Botão de controle: estilo GHOST (padrão do app) — transparente, ícone
+    // branco; só vira "botão" (fundo suave) ao passar o mouse. Sem caixa/borda.
     component Ctl: Rectangle {
         id: c
         property string icon: ""
         property bool big: false
         signal clicked()
-        implicitWidth: big ? 56 : 46
-        implicitHeight: big ? 56 : 46
-        radius: 8
-        color: cm.containsMouse ? Theme.btnSecHi : Theme.btnSec
+        implicitWidth: big ? 60 : 48
+        implicitHeight: big ? 60 : 48
+        radius: width/2
+        color: cm.containsMouse ? Theme.panel2 : "transparent"
         Behavior on color { ColorAnimation { duration: 120 } }
-        scale: cm.pressed ? 0.94 : 1.0
+        scale: cm.pressed ? 0.92 : 1.0
         Behavior on scale { NumberAnimation { duration: 90 } }
         Image {
             anchors.centerIn: parent
             source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/" + c.icon
-            sourceSize.width: c.big ? 28 : 24; sourceSize.height: c.big ? 28 : 24; smooth: true
+            sourceSize.width: c.big ? 30 : 24; sourceSize.height: c.big ? 30 : 24; smooth: true
         }
         MouseArea { id: cm; anchors.fill: parent; hoverEnabled: true
             cursorShape: Qt.PointingHandCursor; onClicked: c.clicked() }

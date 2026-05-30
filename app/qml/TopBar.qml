@@ -10,7 +10,7 @@ Rectangle {
     height: 66
     color: Qt.rgba(0.043, 0.035, 0.063, 0.96)   // bg quase opaco
 
-    // Aba ativa: "home" | "live" | "movies" | "series"
+    // Aba ativa: "home" | "live" | "favorites" | "movies" | "series"
     property string active: "live"
     property alias searchText: searchField.text
     property bool showSearch: true
@@ -29,10 +29,11 @@ Rectangle {
         // Abas
         Repeater {
             model: [
-                { k: "home",   t: "Início" },
-                { k: "live",   t: "TV ao Vivo" },
-                { k: "movies", t: "Filmes" },
-                { k: "series", t: "Séries" }
+                { k: "home",      t: "Início" },
+                { k: "live",      t: "TV ao Vivo" },
+                { k: "favorites", t: "Favoritos" },
+                { k: "movies",    t: "Filmes" },
+                { k: "series",    t: "Séries" }
             ]
             delegate: Item {
                 required property var modelData

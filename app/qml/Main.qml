@@ -63,6 +63,7 @@ ApplicationWindow {
             case "dns":        return "DnsSetup.qml"
             case "home":       return "HomeScreen.qml"
             case "player":     return "LiveTV.qml"
+            case "favorites":  return "LiveTV.qml"
             case "movies":     return "MoviesScreen.qml"
             case "series":     return "SeriesScreen.qml"
             case "settings":   return "SettingsScreen.qml"

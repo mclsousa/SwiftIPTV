@@ -17,6 +17,15 @@
 #include <QJsonObject>
 #include <algorithm>
 
+// Normaliza p/ busca: minúsculas + remove acentos ("Ação" -> "acao").
+static QString foldText(const QString& s) {
+    const QString d = s.normalized(QString::NormalizationForm_D);
+    QString out; out.reserve(d.size());
+    for (const QChar ch : d)
+        if (ch.category() != QChar::Mark_NonSpacing) out.append(ch.toLower());
+    return out;
+}
+
 ChannelManager::ChannelManager(AuthManager* auth, NetworkThread* logoCache, QObject* parent)
     : QObject(parent), m_auth(auth), m_logoCache(logoCache) {
     m_model        = new ChannelListModel(this);
@@ -201,6 +210,12 @@ void ChannelManager::applyData(const QByteArray& data, const QString& serverBase
 
 void ChannelManager::onParsed(QVector<Channel> channels) {
     m_channels = std::move(channels);
+    // Índice global id -> posição (O(1) p/ channelById). Evita varredura linear
+    // de 147k canais a cada clique (rebuildAuxModels chamava channelById por item
+    // do histórico -> milhões de comparações -> travava a UI ao abrir o canal).
+    m_idIndex.clear();
+    m_idIndex.reserve(m_channels.size());
+    for (int i = 0; i < m_channels.size(); ++i) m_idIndex.insert(m_channels[i].id, i);
     // QVector é implicitly shared (COW): atribuir m_channels aos modelos não
     // duplica os dados — só compartilha até alguém mutar (e os modelos não mutam).
     m_model->setSource(m_channels);
@@ -356,9 +371,10 @@ QVariantList ChannelManager::moviesInCategory(const QString& category, int limit
 QVariantList ChannelManager::searchSeries(const QString& text, int limit) const {
     QVariantList out;
     if (text.isEmpty()) return out;
+    const QString needle = foldText(text);   // minúsculas + sem acento
     for (auto it = m_seriesByCat.constBegin(); it != m_seriesByCat.constEnd(); ++it) {
         for (const Ser& s : it.value()) {
-            if (!s.name.contains(text, Qt::CaseInsensitive)) continue;
+            if (!foldText(s.name).contains(needle)) continue;
             QVariantMap m;
             m["name"]     = s.name;
             m["poster"]   = s.poster;
@@ -621,9 +637,8 @@ QVariantList ChannelManager::allCategories() const {
 }
 
 Channel ChannelManager::channelById(const QString& id) const {
-    const int idx = m_model->indexOfId(id);
-    if (idx >= 0) return m_model->channelAt(idx);
-    for (const auto& c : m_channels) if (c.id == id) return c; // fallback (id filtrado)
+    auto it = m_idIndex.constFind(id);
+    if (it != m_idIndex.constEnd()) return m_channels[it.value()];
     return {};
 }
 

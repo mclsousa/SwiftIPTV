@@ -165,6 +165,7 @@ private:
     CategoryListModel* m_seriesCatModel;  // categorias de séries
 
     QVector<Channel> m_channels;
+    QHash<QString, int> m_idIndex;               // id -> índice em m_channels (O(1) p/ channelById)
     QHash<QString, QVector<Ser>> m_seriesByCat;  // categoria -> séries (ordem de aparição)
     QSet<QString> m_recentMovieNames;            // nomes de filmes novos vs. carga anterior
     QSet<QString> m_recentSeriesNames;           // nomes de séries novas vs. carga anterior

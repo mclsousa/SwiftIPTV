@@ -54,10 +54,11 @@ Item {
             showSearch: false
             onTabClicked: function(key) {
                 if (playerOverlay.active) playerOverlay.stop()
-                if (key === "live")         app.navigate("player")
-                else if (key === "movies")  app.navigate("movies")
-                else if (key === "series")  app.navigate("series")
-                else if (key === "profile") app.navigate("settings")
+                if (key === "live")           app.navigate("player")
+                else if (key === "favorites") app.navigate("favorites")
+                else if (key === "movies")    app.navigate("movies")
+                else if (key === "series")    app.navigate("series")
+                else if (key === "profile")   app.navigate("settings")
             }
         }
 

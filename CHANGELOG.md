@@ -9,6 +9,23 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.37 - 2026-05-30
+**Corrige travamento ao abrir canal, aba Favoritos, EPG à esquerda e botões ghost.**
+- **Travamento ao abrir canal corrigido (causa raiz):** `channelById` fazia uma
+  varredura linear dos ~147 mil canais a cada clique (multiplicada pelos itens do
+  histórico) — milhões de comparações que **congelavam a UI** e deixavam a tela
+  branca/preta "Carregando". Agora usa um índice id→posição (**O(1)**): abre na hora.
+- **Nova aba "Favoritos"** ao lado de TV ao Vivo: ao tocar em *Favoritos* num canal,
+  ele passa a aparecer nessa aba (mesma tela da TV, sem a barra de categorias).
+- **Botão EPG abre um painel à ESQUERDA** (deslizante), fora da área do vídeo — antes
+  abria centralizado e ficava escondido atrás do canal em reprodução.
+- **Botões da TV ao Vivo com NOME**: "Favoritos", "EPG" e "Tela cheia" (estilo ghost,
+  viram botão ao passar o mouse) em vez de só ícones.
+- **Botões do player de volta ao estilo ghost** (transparente, realça no hover) —
+  revertendo os quadrados sólidos da v1.35. Esse passa a ser o padrão do app.
+- **Busca ignora acentos e maiúsculas/minúsculas**: digitar "lancamentos" encontra
+  "LANÇAMENTOS"; vale para canais, filmes e séries.
+
 ## v1.36 - 2026-05-30
 **Corrige tela branca/travamento ao abrir canal + ajustes da TV ao Vivo.**
 - **Fundo "aurora" agora é estático** (sem animação): a animação contínua mantinha

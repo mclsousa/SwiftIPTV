@@ -80,10 +80,11 @@ Item {
             active: "series"
             onTabClicked: function(key) {
                 if (playerOverlay.active) playerOverlay.stop()
-                if (key === "home")         app.navigate("home")
-                else if (key === "live")    app.navigate("player")
-                else if (key === "movies")  app.navigate("movies")
-                else if (key === "profile") app.navigate("settings")
+                if (key === "home")           app.navigate("home")
+                else if (key === "live")      app.navigate("player")
+                else if (key === "favorites") app.navigate("favorites")
+                else if (key === "movies")    app.navigate("movies")
+                else if (key === "profile")   app.navigate("settings")
             }
             onSearchTextChanged: {
                 root.search = topBar.searchText

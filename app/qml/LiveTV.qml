@@ -14,6 +14,11 @@ Item {
     opacity: 0
     NumberAnimation on opacity { from: 0; to: 1; duration: 380; easing.type: Easing.OutCubic }
 
+    // Modo "Favoritos": mesma tela, mas a coluna de canais usa a lista de
+    // favoritos e a barra de categorias some.
+    property bool favMode: app.screen === "favorites"
+    readonly property var activeModel: favMode ? channels.favoritesModel : channels.model
+
     property string currentCategory: ""
     property string numberBuffer: ""
     property bool favTick: false
@@ -54,9 +59,16 @@ Item {
 
     Component.onCompleted: {
         forceActiveFocus()
-        channels.model.filter = ""
-        selectFirstCategoryIfNeeded()
+        root.activeModel.filter = ""
+        if (!favMode) selectFirstCategoryIfNeeded()
         refreshEpg()
+    }
+    // Alternar player<->favoritos não recria a tela (mesmo Loader source): reage
+    // à troca de modo p/ limpar a busca e (re)selecionar a 1ª categoria ao vivo.
+    onFavModeChanged: {
+        topNav.searchText = ""
+        root.activeModel.filter = ""
+        if (!favMode) selectFirstCategoryIfNeeded()
     }
     Connections {
         target: channels
@@ -92,14 +104,18 @@ Item {
             id: topNav
             Layout.fillWidth: true
             visible: !root.isFullscreen
-            active: "live"
+            active: root.favMode ? "favorites" : "live"
             onTabClicked: function(key) {
-                if (key === "home")         { mpv.command(["stop"]); app.navigate("home") }
-                else if (key === "movies")  { mpv.command(["stop"]); app.navigate("movies") }
-                else if (key === "series")  { mpv.command(["stop"]); app.navigate("series") }
-                else if (key === "profile") { mpv.command(["stop"]); app.navigate("settings") }
+                if (key === active) return        // já está nesta aba
+                mpv.command(["stop"])
+                if (key === "home")           app.navigate("home")
+                else if (key === "live")      app.navigate("player")
+                else if (key === "favorites") app.navigate("favorites")
+                else if (key === "movies")    app.navigate("movies")
+                else if (key === "series")    app.navigate("series")
+                else if (key === "profile")   app.navigate("settings")
             }
-            onSearchTextChanged: channels.model.filter = topNav.searchText
+            onSearchTextChanged: root.activeModel.filter = topNav.searchText
         }
 
         RowLayout {
@@ -107,17 +123,18 @@ Item {
             Layout.fillHeight: true
             spacing: 0
 
-            // Col 1: categorias
+            // Col 1: categorias (oculta no modo Favoritos)
             CategorySidebar {
                 Layout.preferredWidth: 280
                 Layout.fillHeight: true
-                visible: !root.isFullscreen
+                visible: !root.isFullscreen && !root.favMode
                 categoryModel: channels.liveCategoriesModel
                 current: root.currentCategory
                 onCategorySelected: function(name) { root.setCategory(name) }
                 onLockedCategoryClicked: function(name) { pinDialog.openFor(name) }
             }
-            Rectangle { width: 1; Layout.fillHeight: true; color: Theme.border; visible: !root.isFullscreen }
+            Rectangle { width: 1; Layout.fillHeight: true; color: Theme.border
+                visible: !root.isFullscreen && !root.favMode }
 
             // Col 2: canais (com EPG do programa atual)
             Rectangle {
@@ -126,11 +143,35 @@ Item {
                 visible: !root.isFullscreen
                 color: Theme.bg
 
+                // Estado vazio do modo Favoritos
+                Column {
+                    anchors.centerIn: parent
+                    width: parent.width - 48
+                    spacing: 10
+                    visible: root.favMode && chList.count === 0
+                    Image {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        source: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/star.svg"
+                        sourceSize.width: 44; sourceSize.height: 44; opacity: 0.5
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "Nenhum favorito ainda"; color: Theme.text
+                        font.pixelSize: 16; font.bold: true
+                    }
+                    Text {
+                        width: parent.width; horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.WordWrap
+                        text: "Abra um canal em TV ao Vivo e toque em \"Favoritos\" para salvá-lo aqui."
+                        color: Theme.subtext; font.pixelSize: 13
+                    }
+                }
+
                 ListView {
                     id: chList
                     anchors.fill: parent
                     clip: true
-                    model: channels.model
+                    model: root.activeModel
                     cacheBuffer: 400
                     boundsBehavior: Flickable.StopAtBounds
                     ScrollBar.vertical: ScrollBar { }
@@ -333,30 +374,29 @@ Item {
                         }
                     }
 
-                    // Botões (apenas ícones, estilo ghost: viram botão no hover)
+                    // Botões com NOME (estilo ghost: viram botão no hover)
                     RowLayout {
                         Layout.fillWidth: true
                         visible: !root.isFullscreen
-                        spacing: 6
+                        spacing: 4
                         Item { Layout.fillWidth: true }
                         AppButton {
                             kind: "ghost"
                             enabled: player.currentId !== ""
-                            iconSource: (root.favTick, player.currentId && channels.isFavorite(player.currentId))
-                                        ? "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/star_filled.svg"
-                                        : "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/star.svg"
+                            text: (root.favTick, player.currentId && channels.isFavorite(player.currentId))
+                                  ? "Nos favoritos" : "Favoritos"
                             onClicked: { channels.toggleFavorite(player.currentId); root.favTick = !root.favTick }
                         }
                         AppButton {
                             kind: "ghost"
                             enabled: player.currentId !== ""
-                            iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/epg.svg"
+                            text: "EPG"
                             onClicked: root.openFullEpg()
                         }
                         AppButton {
                             kind: "ghost"
                             enabled: player.currentId !== ""
-                            iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/fullscreen.svg"
+                            text: "Tela cheia"
                             onClicked: root.toggleFullscreen()
                         }
                     }
@@ -383,10 +423,15 @@ Item {
         MouseArea { anchors.fill: parent; onClicked: root.epgFullOpen = false }
 
         Rectangle {
-            anchors.centerIn: parent
-            width: Math.min(parent.width - 120, 640)
-            height: Math.min(parent.height - 120, 620)
-            radius: 16; color: Theme.panel; border.color: Theme.border
+            id: epgPanel
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: Math.min(parent.width * 0.42, 470)
+            color: Theme.panel
+            // entra deslizando da esquerda (fica longe do vídeo, que está à direita)
+            x: root.epgFullOpen ? 0 : -width
+            Behavior on x { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+            Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.border }
             MouseArea { anchors.fill: parent }   // não fecha ao clicar dentro
 
             ColumnLayout {
