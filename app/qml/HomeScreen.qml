@@ -16,6 +16,8 @@ Item {
     property string movieCat: ""
     property string seriesCat: ""
     property var    featured: null
+    property var    recentM: []
+    property var    recentS: []
 
     function refreshFeatured() {
         if (channels.movieCategoriesModel.count > 0)
@@ -26,6 +28,8 @@ Item {
             var arr = channels.moviesInCategory(root.movieCat, 1)
             root.featured = (arr && arr.length > 0) ? arr[0] : null
         }
+        root.recentM = channels.recentMovies(20)
+        root.recentS = channels.recentSeries(20)
     }
     Component.onCompleted: refreshFeatured()
     Connections {
@@ -143,6 +147,24 @@ Item {
                             }
                         }
                     }
+                }
+
+                CarouselRow {
+                    Layout.fillWidth: true
+                    title: "Filmes adicionados recentemente"
+                    items: root.recentM
+                    posterField: "logo"
+                    onClickedItem: function(item) { playerOverlay.play(item.id) }
+                    onSeeAll: app.navigate("movies")
+                }
+
+                CarouselRow {
+                    Layout.fillWidth: true
+                    title: "Séries adicionadas recentemente"
+                    items: root.recentS
+                    posterField: "poster"
+                    onClickedItem: function(item) { app.navigate("series") }
+                    onSeeAll: app.navigate("series")
                 }
 
                 CarouselRow {

@@ -87,6 +87,7 @@ qt_add_qml_module(SwiftIPTV
         qml/Theme.qml
         qml/Main.qml
         qml/Logo.qml
+        qml/AppButton.qml
         qml/LoginScreen.qml
         qml/DnsSetup.qml
         qml/HomeScreen.qml
@@ -114,6 +115,7 @@ qt_add_qml_module(SwiftIPTV
         resources/icons/mi/trash.svg
         resources/icons/mi/info.svg
         resources/icons/mi/search.svg
+        resources/icons/mi/lock.svg
         resources/icons/mi/play.svg
         resources/icons/mi/pause.svg
         resources/icons/mi/stop.svg

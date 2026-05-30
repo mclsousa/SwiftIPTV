@@ -109,15 +109,11 @@ Item {
                 color: Theme.text; font.pixelSize: 22; font.bold: true
             }
             Item { Layout.fillWidth: true }
-            Rectangle {
+            AppButton {
                 visible: root.view === "browse"
-                implicitWidth: vtcTxt.implicitWidth + 30; height: 38; radius: 19
-                color: vtcMouse.containsMouse ? Theme.panel2 : Theme.panel
-                border.color: Theme.border
-                Text { id: vtcTxt; anchors.centerIn: parent; text: "Ver todas as categorias"
-                    color: Theme.text; font.pixelSize: 13; font.bold: true }
-                MouseArea { id: vtcMouse; anchors.fill: parent; hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor; onClicked: root.view = "categories" }
+                kind: "secondary"; fontSize: 13
+                text: "Ver todas as categorias"
+                onClicked: root.view = "categories"
             }
         }
 

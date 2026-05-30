@@ -376,6 +376,32 @@ void MpvObject::togglePause() {
     setMpvProperty("pause", m_paused ? "no" : "yes");
 }
 
+// Mapeia código de idioma (ISO 639) para o nome completo em português.
+static QString langName(const QString& codeRaw) {
+    const QString c = codeRaw.trimmed().toLower();
+    if (c.isEmpty()) return {};
+    static const QHash<QString, QString> m = {
+        {"por","Português"}, {"pt","Português"}, {"pt-br","Português (Brasil)"}, {"pob","Português (Brasil)"},
+        {"eng","Inglês"}, {"en","Inglês"},
+        {"spa","Espanhol"}, {"es","Espanhol"}, {"lat","Espanhol (Latino)"},
+        {"fra","Francês"}, {"fre","Francês"}, {"fr","Francês"},
+        {"deu","Alemão"}, {"ger","Alemão"}, {"de","Alemão"},
+        {"ita","Italiano"}, {"it","Italiano"},
+        {"jpn","Japonês"}, {"ja","Japonês"},
+        {"kor","Coreano"}, {"ko","Coreano"},
+        {"zho","Chinês"}, {"chi","Chinês"}, {"zh","Chinês"},
+        {"rus","Russo"}, {"ru","Russo"},
+        {"ara","Árabe"}, {"ar","Árabe"},
+        {"hin","Hindi"}, {"hi","Hindi"},
+        {"nld","Holandês"}, {"dut","Holandês"},
+        {"tur","Turco"}, {"pol","Polonês"}, {"swe","Sueco"}, {"nor","Norueguês"},
+        {"dan","Dinamarquês"}, {"fin","Finlandês"}, {"hun","Húngaro"},
+        {"und","Original"}, {"mul","Multilíngue"}
+    };
+    auto it = m.constFind(c);
+    return it != m.constEnd() ? it.value() : QString();
+}
+
 // Lê o "track-list" do mpv (JSON) e devolve as faixas do tipo pedido.
 static QVariantList readTracks(mpv_handle* mpv, const QString& wantType) {
     QVariantList out;
@@ -391,14 +417,18 @@ static QVariantList readTracks(mpv_handle* mpv, const QString& wantType) {
         const QJsonObject o = v.toObject();
         if (o.value("type").toString() != wantType) continue;
         const int id = o.value("id").toInt();
-        QString label = o.value("title").toString();
-        const QString lang = o.value("lang").toString();
-        if (label.isEmpty() && !lang.isEmpty()) label = lang;
-        if (label.isEmpty())
-            label = (wantType == QLatin1String("audio") ? QStringLiteral("Faixa %1")
-                                                         : QStringLiteral("Legenda %1")).arg(id);
-        else if (!lang.isEmpty() && !label.contains(lang, Qt::CaseInsensitive))
-            label += QStringLiteral(" (") + lang + QStringLiteral(")");
+        const QString title = o.value("title").toString().trimmed();
+        const QString lang = o.value("lang").toString().trimmed();
+        const QString full = langName(lang);   // nome completo do idioma, se conhecido
+        QString label;
+        if (!title.isEmpty())      label = title;
+        else if (!full.isEmpty())  label = full;
+        else if (!lang.isEmpty())  label = lang.toUpper();
+        else label = (wantType == QLatin1String("audio") ? QStringLiteral("Faixa %1")
+                                                          : QStringLiteral("Legenda %1")).arg(id);
+        // Tem título E idioma conhecido que o título não menciona -> anexa o idioma por extenso.
+        if (!title.isEmpty() && !full.isEmpty() && !title.contains(full, Qt::CaseInsensitive))
+            label += QStringLiteral("  ·  ") + full;
         QVariantMap m;
         m["id"] = id;
         m["label"] = label;

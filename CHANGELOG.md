@@ -9,6 +9,28 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.28 - 2026-05-29
+**Adicionados recentemente, controle parental, botões premium e ajustes do player.**
+
+### App Windows — `app/`
+- **Carrosséis "Adicionados recentemente"** na Home (Filmes e Séries),
+  calculados pela diferença de títulos entre a carga atual e a anterior (com
+  fallback para a categoria de lançamentos no 1º uso).
+- **Controle Parental** (Configurações → Controle Parental): define um **PIN**
+  de 4 dígitos, bloqueia **categorias adultas automaticamente** (por palavra-
+  chave) e permite **bloquear categorias específicas**. Categorias bloqueadas
+  ficam ocultas das listas; o painel é protegido por PIN; há opção de liberar
+  o conteúdo só na sessão atual.
+- **Botões redesenhados** (estilo aplicativo, não web): novo `AppButton`
+  (primário com gradiente, secundário, ghost, com ícone e estados de hover/
+  press). Aplicado em TV ao Vivo (Favoritos/Procurar/Tela cheia) e nos botões
+  "Ver todas as categorias".
+- **Faixas de áudio/legenda com nome completo**: "por" → Português, "eng" →
+  Inglês, etc. (antes mostrava o código abreviado).
+- **Barra de controles do player centralizada**: o transporte (play/pause/etc.)
+  fica no centro real; áudio/legenda/tela cheia/parar ficam à direita.
+- Player mpv **intocado**.
+
 ## v1.27 - 2026-05-29
 **Logo em wordmark.** A pedido, a marca passou a ser só o nome (sem símbolo):
 **"Swift"** (branco) + **"IPTV"** (roxo), em peso forte e tracking apertado —

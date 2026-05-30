@@ -326,17 +326,28 @@ Item {
                     RowLayout {
                         Layout.fillWidth: true
                         visible: !root.isFullscreen
-                        spacing: 12
+                        spacing: 10
                         Item { Layout.fillWidth: true }
-                        PillButton {
-                            label: (root.favTick, player.currentId && channels.isFavorite(player.currentId))
-                                   ? "Remover dos Favoritos" : "Adicionar aos Favoritos"
-                            enabled: player.currentId && player.currentId !== ""
+                        AppButton {
+                            kind: "secondary"
+                            enabled: player.currentId !== ""
+                            text: (root.favTick, player.currentId && channels.isFavorite(player.currentId))
+                                  ? "Remover dos Favoritos" : "Adicionar aos Favoritos"
                             onClicked: { channels.toggleFavorite(player.currentId); root.favTick = !root.favTick }
                         }
-                        PillButton { label: "Procurar"; onClicked: topNav.focusSearch() }
-                        PillButton { label: "Tela cheia"; enabled: player.currentId !== ""
-                            onClicked: root.toggleFullscreen() }
+                        AppButton {
+                            kind: "secondary"
+                            iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/search.svg"
+                            text: "Procurar"
+                            onClicked: topNav.focusSearch()
+                        }
+                        AppButton {
+                            kind: "primary"
+                            iconSource: "qrc:/qt/qml/SwiftIPTV/resources/icons/mi/fullscreen.svg"
+                            text: "Tela cheia"
+                            enabled: player.currentId !== ""
+                            onClicked: root.toggleFullscreen()
+                        }
                     }
                 }
 
@@ -350,27 +361,4 @@ Item {
         }
     }
 
-    component PillButton: Rectangle {
-        id: pill
-        property string label: ""
-        property bool enabled: true
-        signal clicked()
-        implicitWidth: pillText.implicitWidth + 36
-        implicitHeight: 44
-        radius: 22
-        color: !enabled ? Theme.panel2 : (pillMouse.containsMouse ? Theme.brand2 : Theme.brand)
-        opacity: enabled ? 1.0 : 0.5
-        Text {
-            id: pillText
-            anchors.centerIn: parent
-            text: pill.label; color: Theme.buttonText
-            font.pixelSize: 14; font.bold: true
-        }
-        MouseArea {
-            id: pillMouse
-            anchors.fill: parent; hoverEnabled: true
-            cursorShape: pill.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-            onClicked: if (pill.enabled) pill.clicked()
-        }
-    }
 }

@@ -4,6 +4,7 @@
 #include <QStringList>
 #include <QHash>
 #include <QMap>
+#include <QSet>
 #include <QVariantList>
 #include <QNetworkAccessManager>
 #include "core/M3UParser.h"
@@ -28,6 +29,9 @@ class ChannelManager : public QObject {
     Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
     Q_PROPERTY(QString activeServer READ activeServer NOTIFY activeServerChanged)
+    // --- Controle parental ---
+    Q_PROPERTY(bool parentalHasPin READ parentalHasPin NOTIFY parentalChanged)
+    Q_PROPERTY(bool parentalAutoAdult READ parentalAutoAdult NOTIFY parentalChanged)
 public:
     ChannelManager(AuthManager* auth, NetworkThread* logoCache, QObject* parent = nullptr);
 
@@ -59,6 +63,31 @@ public:
     Q_INVOKABLE QVariantList moviesInCategory(const QString& category, int limit = 0) const;
     // Busca séries pelo nome em todas as categorias. [{name, poster, category}]
     Q_INVOKABLE QVariantList searchSeries(const QString& text, int limit = 60) const;
+    // "Adicionados recentemente": diferença de nomes entre a carga atual e a
+    // anterior (persistida). No 1º uso (sem base), cai pra categoria de
+    // lançamentos. movies: [{id,name,logo}]; series: [{name,poster,category}].
+    Q_INVOKABLE QVariantList recentMovies(int limit = 20) const;
+    Q_INVOKABLE QVariantList recentSeries(int limit = 20) const;
+
+    // --- Controle parental (PIN + categorias bloqueadas) ---
+    bool parentalHasPin() const { return !m_pin.isEmpty(); }
+    bool parentalAutoAdult() const { return m_autoAdult; }
+    Q_INVOKABLE bool isAdultCategory(const QString& name) const;
+    // Bloqueada de verdade agora (tem PIN, não foi liberada na sessão, e está
+    // na lista OU é adulta com auto-adulto ligado).
+    Q_INVOKABLE bool isCategoryLocked(const QString& name) const;
+    // Está marcada na lista de bloqueio (independente de sessão) — p/ a UI de gestão.
+    Q_INVOKABLE bool isCategoryInLockList(const QString& name) const { return m_lockedCats.contains(name); }
+    Q_INVOKABLE bool checkPin(const QString& pin) const;
+    // Define/troca o PIN. Se já existe, exige o antigo correto. Retorna sucesso.
+    Q_INVOKABLE bool setPin(const QString& oldPin, const QString& newPin);
+    Q_INVOKABLE bool clearPin(const QString& pin);
+    Q_INVOKABLE void setAutoAdult(bool on);
+    Q_INVOKABLE void toggleCategoryLock(const QString& name);
+    Q_INVOKABLE void unlockSession(const QString& name);     // libera 1 categoria nesta sessão
+    Q_INVOKABLE void unlockAllSession();                     // libera tudo nesta sessão
+    // Todas as categorias (live/movie/series) p/ a tela de gestão: [{name,type,locked}]
+    Q_INVOKABLE QVariantList allCategories() const;
 
 public slots:
     void loadList(bool forceRefresh = false);
@@ -76,6 +105,7 @@ signals:
     void activeServerChanged();
     void listReady(int channelCount);
     void error(const QString& message);
+    void parentalChanged();
 
 private:
     QString buildUrl(const QString& serverBase) const;
@@ -89,6 +119,12 @@ private:
     void rebuildCategories(const QString& type, CategoryListModel* target);
     // Reconstrói o índice de séries (categoria -> série -> temporada -> episódios).
     void rebuildSeriesIndex();
+    // Recalcula os "recém-adicionados" (diff de nomes) e persiste a base.
+    void computeRecent();
+    // Primeira categoria do tipo que pareça de "lançamentos" (fallback).
+    QString releasesCategory(const QString& type) const;
+    // Reconstrói os 3 modelos de categoria (aplica o filtro parental) e notifica.
+    void refreshParentalModels();
     void setLoading(bool b);
 
     // Índice de séries em memória.
@@ -113,6 +149,13 @@ private:
 
     QVector<Channel> m_channels;
     QHash<QString, QVector<Ser>> m_seriesByCat;  // categoria -> séries (ordem de aparição)
+    QSet<QString> m_recentMovieNames;            // nomes de filmes novos vs. carga anterior
+    QSet<QString> m_recentSeriesNames;           // nomes de séries novas vs. carga anterior
+    // Controle parental
+    QString       m_pin;                         // PIN (codificado no config.ini)
+    QStringList   m_lockedCats;                  // categorias bloqueadas pelo usuário
+    bool          m_autoAdult = true;            // bloquear categorias adultas automaticamente
+    QSet<QString> m_unlockedSession;             // categorias liberadas nesta execução
     QStringList m_favorites;
     QStringList m_history;
     QString m_forcedServer;

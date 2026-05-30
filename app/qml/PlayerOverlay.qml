@@ -177,24 +177,33 @@ Item {
                         font.pixelSize: 12; Layout.preferredWidth: 54 }
                 }
 
-                // Botões (bem espaçados)
-                RowLayout {
+                // Botões: transporte CENTRALIZADO + secundários à direita
+                Item {
                     Layout.fillWidth: true
-                    spacing: 18
+                    Layout.preferredHeight: 60
 
-                    Item { Layout.fillWidth: true }
-                    Ctl { icon: "prev.svg";    onClicked: overlay.prevRequested() }
-                    Ctl { icon: "rewind.svg";  onClicked: vodMpv.command(["seek", -10, "relative"]) }
-                    Ctl { icon: vodMpv.paused ? "play.svg" : "pause.svg"; big: true
-                        onClicked: vodMpv.togglePause() }
-                    Ctl { icon: "forward.svg"; onClicked: vodMpv.command(["seek", 10, "relative"]) }
-                    Ctl { icon: "next.svg";    onClicked: overlay.nextRequested() }
-                    Item { Layout.fillWidth: true }
+                    // Transporte (sempre no centro real da barra)
+                    RowLayout {
+                        anchors.centerIn: parent
+                        spacing: 18
+                        Ctl { icon: "prev.svg";    onClicked: overlay.prevRequested() }
+                        Ctl { icon: "rewind.svg";  onClicked: vodMpv.command(["seek", -10, "relative"]) }
+                        Ctl { icon: vodMpv.paused ? "play.svg" : "pause.svg"; big: true
+                            onClicked: vodMpv.togglePause() }
+                        Ctl { icon: "forward.svg"; onClicked: vodMpv.command(["seek", 10, "relative"]) }
+                        Ctl { icon: "next.svg";    onClicked: overlay.nextRequested() }
+                    }
 
-                    Ctl { icon: "audio.svg";      onClicked: overlay.openTracks("audio") }
-                    Ctl { icon: "subtitles.svg";  onClicked: overlay.openTracks("sub") }
-                    Ctl { icon: "fullscreen.svg"; onClicked: overlay.toggleFull() }
-                    Ctl { icon: "stop.svg";       onClicked: overlay.stop() }
+                    // Secundários à direita
+                    RowLayout {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 12
+                        Ctl { icon: "audio.svg";      onClicked: overlay.openTracks("audio") }
+                        Ctl { icon: "subtitles.svg";  onClicked: overlay.openTracks("sub") }
+                        Ctl { icon: "fullscreen.svg"; onClicked: overlay.toggleFull() }
+                        Ctl { icon: "stop.svg";       onClicked: overlay.stop() }
+                    }
                 }
             }
         }
