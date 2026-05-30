@@ -9,6 +9,11 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.27 - 2026-05-29
+**Logo em wordmark.** A pedido, a marca passou a ser só o nome (sem símbolo):
+**"Swift"** (branco) + **"IPTV"** (roxo), em peso forte e tracking apertado —
+visual limpo e profissional. Removido o símbolo decorativo das telas.
+
 ## v1.26 - 2026-05-29
 **Polimento visual: logo nova, TV ao Vivo mais bonita, hero com destaque.**
 

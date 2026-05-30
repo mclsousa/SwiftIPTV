@@ -63,7 +63,7 @@ Item {
                         NumberAnimation { to: 0.55; duration: 1600; easing.type: Easing.InOutSine }
                         NumberAnimation { to: 0.30; duration: 1600; easing.type: Easing.InOutSine } }
                 }
-                Logo { id: logo; anchors.centerIn: parent; markSize: 60; fontSize: 30 }
+                Logo { id: logo; anchors.centerIn: parent; fontSize: 38 }
             }
 
             Text {

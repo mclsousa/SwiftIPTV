@@ -101,15 +101,6 @@ Item {
                             visible: source != ""
                         }
                     }
-                    // Marca decorativa quando não há destaque
-                    Image {
-                        visible: !root.hasFeatured
-                        anchors.right: parent.right; anchors.rightMargin: 110
-                        anchors.verticalCenter: parent.verticalCenter
-                        source: "qrc:/qt/qml/SwiftIPTV/resources/logos/logo-swift.svg"
-                        sourceSize.width: 200; sourceSize.height: 200; opacity: 0.9
-                    }
-
                     ColumnLayout {
                         anchors.left: parent.left; anchors.leftMargin: 44
                         anchors.verticalCenter: parent.verticalCenter
