@@ -118,6 +118,9 @@ qt_add_qml_module(SwiftIPTV
         resources/icons/mi/search.svg
         resources/icons/mi/lock.svg
         resources/icons/mi/play_dark.svg
+        resources/icons/mi/star.svg
+        resources/icons/mi/star_filled.svg
+        resources/icons/mi/epg.svg
         resources/icons/mi/play.svg
         resources/icons/mi/pause.svg
         resources/icons/mi/stop.svg
