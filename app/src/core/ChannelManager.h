@@ -68,6 +68,9 @@ public:
     // lançamentos. movies: [{id,name,logo}]; series: [{name,poster,category}].
     Q_INVOKABLE QVariantList recentMovies(int limit = 20) const;
     Q_INVOKABLE QVariantList recentSeries(int limit = 20) const;
+    // Filmes da categoria de "Lançamentos" do provedor (carrossel da Home).
+    Q_INVOKABLE QVariantList launchMovies(int limit = 20) const;
+    Q_INVOKABLE QString launchCategoryName() const;
 
     // --- Retomar reprodução / Continuar assistindo (VOD) ---
     // Salva (ou atualiza) a posição de onde o título parou.

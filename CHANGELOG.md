@@ -9,6 +9,13 @@ Todas as mudanças relevantes do **SwiftIPTV** (painel + app).
 ## Não lançado
 - Anote aqui o que está em desenvolvimento antes de criar a próxima tag.
 
+## v1.32 - 2026-05-30
+**Carrossel "Lançamentos" com a etiqueta NOVO.**
+- Nova fileira **"Lançamentos"** na Home (categoria de lançamentos do provedor),
+  e a etiqueta **NOVO** passou a aparecer **apenas** nesse carrossel.
+- Removida a etiqueta NOVO dos carrosséis de "adicionados recentemente" e do
+  banner em destaque (agora rotulado só como "EM DESTAQUE").
+
 ## v1.31 - 2026-05-30
 **Banner "recém-adicionado", etiqueta NOVO, controle parental com cadeado e
 recuperação de PIN, e refinos.**

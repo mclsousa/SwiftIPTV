@@ -19,6 +19,8 @@ Item {
     property var    recentM: []
     property var    recentS: []
     property var    recentP: []   // continuar assistindo
+    property var    launchM: []   // lançamentos (categoria do provedor)
+    property string launchCat: ""
 
     function refreshFeatured() {
         if (channels.movieCategoriesModel.count > 0)
@@ -28,6 +30,8 @@ Item {
         root.recentM = channels.recentMovies(20)
         root.recentS = channels.recentSeries(20)
         root.recentP = channels.recentlyPlayed(20)
+        root.launchM = channels.launchMovies(20)
+        root.launchCat = channels.launchCategoryName()
         // Banner em destaque = ÚLTIMO filme adicionado (atualiza a cada recarga).
         root.featured = (root.recentM && root.recentM.length > 0) ? root.recentM[0] : null
     }
@@ -117,7 +121,7 @@ Item {
                             visible: root.hasFeatured
                             implicitWidth: novoTxt.implicitWidth + 18; height: 24; radius: 4
                             color: Theme.brand
-                            Text { id: novoTxt; anchors.centerIn: parent; text: "NOVO  ·  RECÉM-ADICIONADO"
+                            Text { id: novoTxt; anchors.centerIn: parent; text: "EM DESTAQUE"
                                 color: "white"; font.pixelSize: 11; font.bold: true; font.letterSpacing: 1 }
                         }
                         Text {
@@ -162,12 +166,22 @@ Item {
                     onSeeAll: {}
                 }
 
+                // Único carrossel com a etiqueta NOVO (Lançamentos)
+                CarouselRow {
+                    Layout.fillWidth: true
+                    title: "Lançamentos"
+                    items: root.launchM
+                    posterField: "logo"
+                    showNew: true
+                    onClickedItem: function(item) { playerOverlay.play(item.id, item.name, item.logo) }
+                    onSeeAll: { if (root.launchCat !== "") app.navigate("movies") }
+                }
+
                 CarouselRow {
                     Layout.fillWidth: true
                     title: "Filmes adicionados recentemente"
                     items: root.recentM
                     posterField: "logo"
-                    showNew: true
                     onClickedItem: function(item) { playerOverlay.play(item.id, item.name, item.logo) }
                     onSeeAll: app.navigate("movies")
                 }
@@ -177,7 +191,6 @@ Item {
                     title: "Séries adicionadas recentemente"
                     items: root.recentS
                     posterField: "poster"
-                    showNew: true
                     onClickedItem: function(item) { app.navigate("series") }
                     onSeeAll: app.navigate("series")
                 }

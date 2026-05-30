@@ -332,6 +332,12 @@ QVariantList ChannelManager::episodesOf(const QString& category, const QString& 
     return out;
 }
 
+QString ChannelManager::launchCategoryName() const { return releasesCategory(QStringLiteral("movie")); }
+
+QVariantList ChannelManager::launchMovies(int limit) const {
+    return moviesInCategory(releasesCategory(QStringLiteral("movie")), limit);
+}
+
 QVariantList ChannelManager::moviesInCategory(const QString& category, int limit) const {
     QVariantList out;
     for (const auto& c : m_channels) {
